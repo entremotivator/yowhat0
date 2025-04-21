@@ -1,6 +1,6 @@
 streamlit
 requests
-Speech_recognition
+speech_recognition
 gTTS
 uuid
 python-dotenv
