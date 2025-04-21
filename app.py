@@ -21,7 +21,7 @@ session_defaults = {
     'show_timestamps': False,
     'auto_save': False,
     'messages': [],
-    'recognizer': sr.Recognizer()
+    'recognizer': None  # Initialize recognizer to None
 }
 for key, val in session_defaults.items():
     st.session_state.setdefault(key, val)
@@ -68,7 +68,6 @@ def send_message_to_llm(session_id, message):
             return data.get("output", "[No output]")
         if isinstance(data, list) and data and isinstance(data[0], dict):
             return data[0].get("output", "[No output]")
-
         return str(data) if data else "[Empty response]"
 
     except requests.RequestException as e:
@@ -76,15 +75,28 @@ def send_message_to_llm(session_id, message):
     except ValueError:
         return "Error parsing JSON response."
 
-def recognize_speech():
-    recognizer = st.session_state.get("recognizer")
-    if recognizer is None:
-        st.error("Speech recognizer not initialized.")
+def initialize_recognizer():
+    """Initializes the speech recognizer."""
+    try:
+        recognizer = sr.Recognizer()
+        recognizer.energy_threshold = 300
+        recognizer.dynamic_energy_threshold = True
+        recognizer.pause_threshold = 1.5
+        return recognizer
+    except Exception as e:
+        st.error(f"Failed to initialize speech recognizer: {e}")
         return None
 
-    recognizer.energy_threshold = 300
-    recognizer.dynamic_energy_threshold = True
-    recognizer.pause_threshold = 1.5
+def recognize_speech():
+    """Recognizes speech from the microphone."""
+    recognizer = st.session_state.get("recognizer")
+    if recognizer is None:
+        recognizer = initialize_recognizer()  # Initialize if None
+        if recognizer is None:
+            st.error("Speech recognizer could not be initialized.")
+            return None
+        st.session_state["recognizer"] = recognizer  # Store it in session state
+
 
     placeholder = st.empty()
     placeholder.info("🎙️ Listening... Please speak clearly.")
@@ -123,6 +135,7 @@ def save_chat_history(session_name):
             })
 
         export_data = {
+            "session_name": session_name,
             "session_id": st.session_state.sessions[session_name]["session_id"],
             "messages": export_messages
         }
@@ -185,6 +198,10 @@ if st.session_state.active_page == "Chat":
     st.title("🗣️ AI Chat Assistant")
     st.markdown("Type or use the voice button to interact with the assistant.")
 
+    # Initialize recognizer when the Chat page is active
+    if st.session_state.get("recognizer") is None:
+        st.session_state["recognizer"] = initialize_recognizer()
+
     for msg in st.session_state.sessions[st.session_state.active_session]["messages"]:
         with st.chat_message(msg['role']):
             if st.session_state.show_timestamps and 'timestamp' in msg:
@@ -244,3 +261,4 @@ if st.session_state.active_page == "Chat":
 elif st.session_state.active_page == "Settings":
     st.title("⚙️ Settings")
     st.write("Configure application settings here.")
+
