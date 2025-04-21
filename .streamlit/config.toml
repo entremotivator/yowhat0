@@ -1,12 +1,11 @@
+[server]
+headless = true
+port = 8501
+enableCORS = false
+
 [theme]
-primaryColor = "#1d3557"
-backgroundColor = "#f1faee"
-secondaryBackgroundColor = "#a8dadc"
-textColor = "#1d3557"
-font = "sans serif"
-
-[runner]
-fastReruns = true
-
-[client]
-showSidebarNavigation = false
+base="light"
+primaryColor="#F63366"
+secondaryBackgroundColor="#FFFFFF"
+textColor="#31333F"
+font="sans serif"
