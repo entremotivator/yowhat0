@@ -1,4 +1,5 @@
 streamlit
 requests
-speechrecognition
 gtts
+streamlit-webrtc
+speechrecognition #Keep this here because it is imported inside the class, it is required
