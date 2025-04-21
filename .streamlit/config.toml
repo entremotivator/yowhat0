@@ -1,0 +1,12 @@
+[theme]
+primaryColor = "#1d3557"
+backgroundColor = "#f1faee"
+secondaryBackgroundColor = "#a8dadc"
+textColor = "#1d3557"
+font = "sans serif"
+
+[runner]
+fastReruns = true
+
+[client]
+showSidebarNavigation = false
