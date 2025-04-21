@@ -1,27 +1,29 @@
 import streamlit as st
 import requests
 import uuid
-import speech_recognition as sr
+from gtts import gTTS
 import os
 import base64
 import json
 from datetime import datetime
 import io
-from gtts import gTTS
+from streamlit_webrtc import webrtc_streamer, AudioProcessorBase, RTCConfiguration
+import logging
+
+logger = logging.getLogger(__name__)
 
 # App Configuration
 st.set_page_config(page_title="Voice Chat Assistant", layout="wide", initial_sidebar_state="collapsed")
 
-# Initialize session state variables if they don't exist
+# Initialize session state variables
 session_defaults = {
     'active_session': "General",
     'active_page': "Chat",
     'use_tts': True,
-    'recording_status': False,
     'show_timestamps': False,
     'auto_save': False,
     'messages': [],
-    'recognizer': sr.Recognizer()
+    'text_from_audio': ""  # Added to store transcribed text
 }
 for key, val in session_defaults.items():
     st.session_state.setdefault(key, val)
@@ -34,6 +36,30 @@ st.session_state.setdefault('credentials', {
 st.session_state.setdefault('sessions', {
     "General": {"messages": [], "session_id": str(uuid.uuid4())}
 })
+
+# Configuration for streamlit-webrtc
+RTC_CONFIGURATION = RTCConfiguration(
+    {"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]}
+)
+
+# Audio Processor Class
+class SpeechToTextProcessor(AudioProcessorBase):
+    def __init__(self):
+        self.transcript = ""
+
+    def recv(self, frame):
+        try:
+            import speech_recognition as sr  # Import here to avoid blocking
+            audio = frame.to_ndarray()
+            sr_audio = sr.AudioData(audio.tobytes(), source_sample_rate=48000, source_sample_width=2)
+            r = sr.Recognizer()
+            self.transcript = r.recognize_google(sr_audio)
+            st.session_state['text_from_audio'] = self.transcript
+        except Exception as e:
+            logger.error(f"Error processing audio: {e}")
+            self.transcript = ""
+            st.error(f"Speech recognition error: {e}") # Report errors in the UI
+        return frame
 
 # Helper Functions
 def text_to_speech(text):
@@ -76,39 +102,6 @@ def send_message_to_llm(session_id, message):
     except ValueError:
         return "Error parsing JSON response."
 
-def recognize_speech():
-    recognizer = st.session_state.get("recognizer")
-    if recognizer is None:
-        st.error("Speech recognizer not initialized.")
-        return None
-
-    recognizer.energy_threshold = 300
-    recognizer.dynamic_energy_threshold = True
-    recognizer.pause_threshold = 1.5
-
-    placeholder = st.empty()
-    placeholder.info("🎙️ Listening... Please speak clearly.")
-
-    try:
-        with sr.Microphone() as source:
-            recognizer.adjust_for_ambient_noise(source, duration=1)
-            audio = recognizer.listen(source, timeout=15, phrase_time_limit=60)
-            placeholder.info("🔊 Processing your speech...")
-            text = recognizer.recognize_google(audio, language='en-US')
-            placeholder.success(f"✅ You said: {text}")
-            return text
-
-    except sr.WaitTimeoutError:
-        placeholder.warning("⚠️ No speech detected. Please try again.")
-    except sr.UnknownValueError:
-        placeholder.warning("⚠️ Could not understand the audio. Please try again.")
-    except sr.RequestError as e:
-        placeholder.error(f"🚨 API request error: {e}")
-    except Exception as e:
-        placeholder.error(f"🚨 Error capturing audio: {e}")
-
-    return None
-
 def save_chat_history(session_name):
     try:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -133,16 +126,6 @@ def save_chat_history(session_name):
         return f"Chat history saved to {filename}"
     except Exception as e:
         return f"Error saving chat history: {e}"
-
-def create_new_session(session_name):
-    if session_name in st.session_state.sessions:
-        return False
-
-    st.session_state.sessions[session_name] = {
-        "messages": [],
-        "session_id": str(uuid.uuid4())
-    }
-    return True
 
 # Navigation - Main App Structure
 main_tabs = ["💬 Chat", "⚙️ Settings"]
@@ -196,13 +179,17 @@ if st.session_state.active_page == "Chat":
 
     user_input = None
 
-    user_input = st.chat_input("Your message...")
+    # Voice Input using streamlit-webrtc
+    text_from_audio = ""
+    webrtc_streamer(
+        key="speech-to-text",
+        audio_processor_factory=SpeechToTextProcessor,
+        rtc_configuration=RTC_CONFIGURATION,
+        media_stream_constraints={"audio": True, "video": False},  # Only audio
+    )
+    text_from_audio = st.session_state.get('text_from_audio', "")
 
-    voice_col1, voice_col2 = st.columns([1, 5])
-    if voice_col1.button("🎙️ Voice Input", key="record_button", use_container_width=True):
-        st.session_state.recording_status = True
-        user_input = recognize_speech()
-        st.session_state.recording_status = False
+    user_input = st.chat_input("Your message...", value=text_from_audio) # Prefill
 
     if user_input:
         current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -238,9 +225,7 @@ if st.session_state.active_page == "Chat":
                 audio_data = text_to_speech(response)
                 st.audio(audio_data, format='audio/mpeg')
 
-        if st.session_state.auto_save:
-            save_chat_history(st.session_state.active_session)
-
+# Settings Page Content
 elif st.session_state.active_page == "Settings":
     st.title("⚙️ Settings")
     st.write("Configure application settings here.")
