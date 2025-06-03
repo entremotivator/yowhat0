@@ -973,7 +973,7 @@ else:
                             del st.session_state.sheets_data[st.session_state.current_page]
                         st.rerun()
                     
-                    return  # Exit early if no data
+                    st.stop()  # Exit early if no data
                 else:
                     st.session_state.sheets_data[st.session_state.current_page] = df
         
