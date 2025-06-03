@@ -803,23 +803,27 @@ if not st.session_state.authenticated:
         - Scalable architecture
         """)
     
-    # Agent categories overview
+    # Agent categories overview - Display in rows instead of columns
     st.header("🎯 Agent Categories")
     categories = get_agent_categories()
     
-    category_cols = st.columns(len(categories))
-    for i, category in enumerate(categories):
-        with category_cols[i]:
-            agents_in_category = [
-                agent for agent in st.session_state.agent_configs.values() 
-                if agent['category'] == category
-            ]
-            st.markdown(f"### {category}")
-            st.metric("Agents", len(agents_in_category))
-            for agent in agents_in_category[:3]:  # Show first 3
-                st.caption(f"{agent['icon']} {agent['name']}")
-            if len(agents_in_category) > 3:
-                st.caption(f"... and {len(agents_in_category) - 3} more")
+    # Display categories in rows (3 per row)
+    for i in range(0, len(categories), 3):
+        row_categories = categories[i:i+3]
+        cols = st.columns(len(row_categories))
+        
+        for j, category in enumerate(row_categories):
+            with cols[j]:
+                agents_in_category = [
+                    agent for agent in st.session_state.agent_configs.values() 
+                    if agent['category'] == category
+                ]
+                st.markdown(f"### {category}")
+                st.metric("Agents", len(agents_in_category))
+                for agent in agents_in_category[:3]:  # Show first 3
+                    st.caption(f"{agent['icon']} {agent['name']}")
+                if len(agents_in_category) > 3:
+                    st.caption(f"... and {len(agents_in_category) - 3} more")
     
     # Real Spreadsheets Overview
     st.header("📊 Real Spreadsheets Connected")
@@ -855,12 +859,37 @@ else:
         st.metric("Phone Number", current_config['ai_phone'])
         st.caption("Ready for calls")
     
-    # Tab navigation
-    tab1, tab2, tab3, tab4 = st.tabs(["🤖 Chatbot", "📊 Data (Sheets)", "📞 AI Voice Call", "💡 Prompts/Info"])
+    # Page Navigation Buttons
+    st.write("### 📑 Page Navigation")
+    page_nav_cols = st.columns(4)
     
-    # Tab 1: Chatbot
-    with tab1:
-        st.header("AI Chat Interface")
+    with page_nav_cols[0]:
+        if st.button("🤖 Chatbot", use_container_width=True):
+            st.session_state.current_tab = 'chatbot'
+            st.rerun()
+    
+    with page_nav_cols[1]:
+        if st.button("📊 Data (Sheets)", use_container_width=True):
+            st.session_state.current_tab = 'data'
+            st.rerun()
+    
+    with page_nav_cols[2]:
+        if st.button("📞 AI Voice Call", use_container_width=True):
+            st.session_state.current_tab = 'ai_call'
+            st.rerun()
+    
+    with page_nav_cols[3]:
+        if st.button("💡 Prompts/Info", use_container_width=True):
+            st.session_state.current_tab = 'prompts'
+            st.rerun()
+    
+    # Set default tab if not set
+    if 'current_tab' not in st.session_state:
+        st.session_state.current_tab = 'chatbot'
+    
+    # Display content based on current tab
+    if st.session_state.current_tab == 'chatbot':
+        st.header("🤖 AI Chat Interface")
         
         # Initialize chat session for current agent
         if st.session_state.current_page not in st.session_state.chat_sessions:
@@ -928,8 +957,7 @@ else:
             st.session_state.chat_sessions[st.session_state.current_page].append(assistant_msg)
             st.rerun()
     
-    # Tab 2: Data (Sheets)
-    with tab2:
+    elif st.session_state.current_tab == 'data':
         st.header("📊 Google Sheets Data & Analytics")
         
         # Show spreadsheet info if available
@@ -1081,8 +1109,7 @@ else:
                 if st.button("📊 Generate Report"):
                     st.info("📈 Comprehensive report generation feature coming soon!")
     
-    # Tab 3: AI Voice Call
-    with tab3:
+    elif st.session_state.current_tab == 'ai_call':
         st.header("📞 AI Voice Call System")
         
         # Call interface
@@ -1242,8 +1269,7 @@ else:
                     st.success("🎉 Demo call initiated!")
                     st.rerun()
     
-    # Tab 4: Prompts/Info
-    with tab4:
+    elif st.session_state.current_tab == 'prompts':
         st.header("💡 Prompt Library & Agent Information")
         
         # Agent detailed information
@@ -1567,6 +1593,8 @@ print("- Export/import capabilities for data and prompts")
 print("- Category-based agent filtering")
 print("- Session management and performance tracking")
 print("- Responsive design with intuitive navigation")
+print("- Clear page navigation buttons for each agent")
+print("- Improved home page category layout")
 print("\n🔧 Technical specifications:")
 print("- Google Service account authentication")
 print("- Streamlit secrets integration for webhook and bearer token")
