@@ -36,274 +36,350 @@ SCOPES = [
     'https://www.googleapis.com/auth/calendar'
 ]
 
-# N8N Configuration
-N8N_WEBHOOK_URL = "https://agentonline-u29564.vm.elestio.app/webhook/42e650d7-3e50-4dda-bf4f-d3e16b1cd"
+# Real spreadsheet IDs
+REAL_SPREADSHEETS = {
+    "Grant": {
+        "id": "1t80HNEgDIBFElZqodlvfaEuRj-bPlS4-R8T9kdLBtFk",
+        "name": "Grant Information",
+        "description": "Grant application and funding data",
+        "icon": "📊"
+    },
+    "Real Estate": {
+        "id": "1BWz_FnYdzZyyl4WafSgoZV9rLHC91XOjstDcgwn_k6Y",
+        "name": "Real Estate Properties",
+        "description": "Property listings and details",
+        "icon": "🏠"
+    },
+    "Agent": {
+        "id": "1Om-RVVChe1GItsY4YaN_K95iM44vTpoxpSXzwTnOdAo",
+        "name": "Agent Information",
+        "description": "Agent profiles and performance metrics",
+        "icon": "👤"
+    }
+}
 
-# Configuration for 25 Agents with unified n8n webhook
+# Get webhook URL and bearer token from Streamlit secrets
+try:
+    WEBHOOK_URL = st.secrets["WEBHOOK_URL"]
+    BEARER_TOKEN = st.secrets["BEARER_TOKEN"]
+except Exception:
+    # Fallback for local development
+    WEBHOOK_URL = "https://agentonline-u29564.vm.elestio.app/webhook/42e650d7-3e50-4dda-bf4f-d3e16b1cd"
+    BEARER_TOKEN = "default_token"
+
+# Configuration for 25 Agents with unified webhook
 AGENTS_CONFIG = {
     "Agent_CEO": {
         "id": "1BWz_FnYdzZyyl4WafSgoZV9rLHC91XOjstDcgwn_k6Y_CEO",
         "name": "Agent CEO",
         "description": "Executive leadership and strategic decision making",
         "icon": "👔",
-        "webhook_url": N8N_WEBHOOK_URL,
+        "webhook_url": WEBHOOK_URL,
+        "bearer_token": BEARER_TOKEN,
         "ai_phone": "+15551000001",
         "ai_assistant_id": "bf161516-6d88-490c-972e-274098a6b51a",
         "category": "Leadership",
-        "specialization": "Strategic Planning, Executive Decisions, Leadership"
+        "specialization": "Strategic Planning, Executive Decisions, Leadership",
+        "spreadsheet": REAL_SPREADSHEETS["Agent"]
     },
     "Agent_Social": {
         "id": "1BWz_FnYdzZyyl4WafSgoZV9rLHC91XOjstDcgwn_k6Y_SOCIAL",
         "name": "Agent Social",
         "description": "Social media management and digital marketing",
         "icon": "📱",
-        "webhook_url": N8N_WEBHOOK_URL,
+        "webhook_url": WEBHOOK_URL,
+        "bearer_token": BEARER_TOKEN,
         "ai_phone": "+15551000002",
         "ai_assistant_id": "bf161516-6d88-490c-972e-274098a6b51a",
         "category": "Marketing",
-        "specialization": "Social Media, Content Creation, Digital Marketing"
+        "specialization": "Social Media, Content Creation, Digital Marketing",
+        "spreadsheet": REAL_SPREADSHEETS["Agent"]
     },
     "Agent_Mindset": {
         "id": "1BWz_FnYdzZyyl4WafSgoZV9rLHC91XOjstDcgwn_k6Y_MINDSET",
         "name": "Agent Mindset",
         "description": "Personal development and mindset coaching",
         "icon": "🧠",
-        "webhook_url": N8N_WEBHOOK_URL,
+        "webhook_url": WEBHOOK_URL,
+        "bearer_token": BEARER_TOKEN,
         "ai_phone": "+15551000003",
         "ai_assistant_id": "4fe7083e-2f28-4502-b6bf-4ae6ea71a8f4",
         "category": "Development",
-        "specialization": "Mindset Coaching, Personal Growth, Motivation"
+        "specialization": "Mindset Coaching, Personal Growth, Motivation",
+        "spreadsheet": REAL_SPREADSHEETS["Agent"]
     },
     "Agent_Blogger": {
         "id": "1BWz_FnYdzZyyl4WafSgoZV9rLHC91XOjstDcgwn_k6Y_BLOGGER",
         "name": "Agent Blogger",
         "description": "Content creation and blog writing",
         "icon": "✍️",
-        "webhook_url": N8N_WEBHOOK_URL,
+        "webhook_url": WEBHOOK_URL,
+        "bearer_token": BEARER_TOKEN,
         "ai_phone": "+15551000004",
         "ai_assistant_id": "f8ef1ad5-5281-42f1-ae69-f94ff7acb453",
         "category": "Content",
-        "specialization": "Blog Writing, Content Strategy, SEO"
+        "specialization": "Blog Writing, Content Strategy, SEO",
+        "spreadsheet": REAL_SPREADSHEETS["Agent"]
     },
     "Agent_Grant": {
         "id": "1BWz_FnYdzZyyl4WafSgoZV9rLHC91XOjstDcgwn_k6Y_GRANT",
         "name": "Agent Grant",
         "description": "Grant writing and funding applications",
         "icon": "💰",
-        "webhook_url": N8N_WEBHOOK_URL,
+        "webhook_url": WEBHOOK_URL,
+        "bearer_token": BEARER_TOKEN,
         "ai_phone": "+15551000005",
         "ai_assistant_id": "7673e69d-170b-4319-bdf4-e74e5370e98a",
         "category": "Finance",
-        "specialization": "Grant Writing, Funding, Proposals"
+        "specialization": "Grant Writing, Funding, Proposals",
+        "spreadsheet": REAL_SPREADSHEETS["Grant"]
     },
     "Agent_Prayer_AI": {
         "id": "1BWz_FnYdzZyyl4WafSgoZV9rLHC91XOjstDcgwn_k6Y_PRAYER",
         "name": "Agent Prayer AI",
         "description": "Spiritual guidance and prayer assistance",
         "icon": "🙏",
-        "webhook_url": N8N_WEBHOOK_URL,
+        "webhook_url": WEBHOOK_URL,
+        "bearer_token": BEARER_TOKEN,
         "ai_phone": "+15551000006",
         "ai_assistant_id": "339cdad6-9989-4bb6-98ed-bd15521707d1",
         "category": "Spiritual",
-        "specialization": "Prayer, Spiritual Guidance, Faith"
+        "specialization": "Prayer, Spiritual Guidance, Faith",
+        "spreadsheet": REAL_SPREADSHEETS["Agent"]
     },
     "Agent_Metrics": {
         "id": "1BWz_FnYdzZyyl4WafSgoZV9rLHC91XOjstDcgwn_k6Y_METRICS",
         "name": "Agent Metrics",
         "description": "Analytics and performance tracking",
         "icon": "📊",
-        "webhook_url": N8N_WEBHOOK_URL,
+        "webhook_url": WEBHOOK_URL,
+        "bearer_token": BEARER_TOKEN,
         "ai_phone": "+15551000007",
         "ai_assistant_id": "4820eab2-adaf-4f17-a8a0-30cab3e3f007",
         "category": "Analytics",
-        "specialization": "KPIs, Analytics, Performance Tracking"
+        "specialization": "KPIs, Analytics, Performance Tracking",
+        "spreadsheet": REAL_SPREADSHEETS["Agent"]
     },
     "Agent_Researcher": {
         "id": "1BWz_FnYdzZyyl4WafSgoZV9rLHC91XOjstDcgwn_k6Y_RESEARCH",
         "name": "Agent Researcher",
         "description": "Research and data analysis",
         "icon": "🔬",
-        "webhook_url": N8N_WEBHOOK_URL,
+        "webhook_url": WEBHOOK_URL,
+        "bearer_token": BEARER_TOKEN,
         "ai_phone": "+15551000008",
         "ai_assistant_id": "f05c182f-d3d1-4a17-9c79-52442a9171b8",
         "category": "Research",
-        "specialization": "Market Research, Data Analysis, Insights"
+        "specialization": "Market Research, Data Analysis, Insights",
+        "spreadsheet": REAL_SPREADSHEETS["Agent"]
     },
     "Agent_Investor": {
         "id": "1BWz_FnYdzZyyl4WafSgoZV9rLHC91XOjstDcgwn_k6Y_INVESTOR",
         "name": "Agent Investor",
         "description": "Investment analysis and financial planning",
         "icon": "💼",
-        "webhook_url": N8N_WEBHOOK_URL,
+        "webhook_url": WEBHOOK_URL,
+        "bearer_token": BEARER_TOKEN,
         "ai_phone": "+15551000009",
         "ai_assistant_id": "1008771d-86ca-472a-a125-7a7e10100297",
         "category": "Finance",
-        "specialization": "Investment Analysis, Portfolio Management"
+        "specialization": "Investment Analysis, Portfolio Management",
+        "spreadsheet": REAL_SPREADSHEETS["Agent"]
     },
     "Agent_Newsroom": {
         "id": "1BWz_FnYdzZyyl4WafSgoZV9rLHC91XOjstDcgwn_k6Y_NEWS",
         "name": "Agent Newsroom",
         "description": "News aggregation and journalism",
         "icon": "📰",
-        "webhook_url": N8N_WEBHOOK_URL,
+        "webhook_url": WEBHOOK_URL,
+        "bearer_token": BEARER_TOKEN,
         "ai_phone": "+15551000010",
         "ai_assistant_id": "76f1d6e5-cab4-45b8-9aeb-d3e6f3c0c019",
         "category": "Media",
-        "specialization": "News, Journalism, Content Curation"
+        "specialization": "News, Journalism, Content Curation",
+        "spreadsheet": REAL_SPREADSHEETS["Agent"]
     },
     "STREAMLIT_Agent": {
         "id": "1BWz_FnYdzZyyl4WafSgoZV9rLHC91XOjstDcgwn_k6Y_STREAMLIT",
         "name": "STREAMLIT Agent",
         "description": "Streamlit app development and Python coding",
         "icon": "🐍",
-        "webhook_url": N8N_WEBHOOK_URL,
+        "webhook_url": WEBHOOK_URL,
+        "bearer_token": BEARER_TOKEN,
         "ai_phone": "+15551000011",
         "ai_assistant_id": "538258da-0dda-473d-8ef8-5427251f3ad5",
         "category": "Development",
-        "specialization": "Streamlit, Python, Web Apps"
+        "specialization": "Streamlit, Python, Web Apps",
+        "spreadsheet": REAL_SPREADSHEETS["Agent"]
     },
     "HTML_CSS_Agent": {
         "id": "1BWz_FnYdzZyyl4WafSgoZV9rLHC91XOjstDcgwn_k6Y_HTML",
         "name": "HTML/CSS Agent",
         "description": "Web development and frontend design",
         "icon": "🌐",
-        "webhook_url": N8N_WEBHOOK_URL,
+        "webhook_url": WEBHOOK_URL,
+        "bearer_token": BEARER_TOKEN,
         "ai_phone": "+15551000012",
         "ai_assistant_id": "14b94e2f-299b-4e75-a445-a4f5feacc522",
         "category": "Development",
-        "specialization": "HTML, CSS, Frontend Development"
+        "specialization": "HTML, CSS, Frontend Development",
+        "spreadsheet": REAL_SPREADSHEETS["Agent"]
     },
     "Business_Plan_Agent": {
         "id": "1BWz_FnYdzZyyl4WafSgoZV9rLHC91XOjstDcgwn_k6Y_BIZPLAN",
         "name": "Business Plan Agent",
         "description": "Business planning and strategy development",
         "icon": "📋",
-        "webhook_url": N8N_WEBHOOK_URL,
+        "webhook_url": WEBHOOK_URL,
+        "bearer_token": BEARER_TOKEN,
         "ai_phone": "+15551000013",
         "ai_assistant_id": "87d59105-723b-427e-a18d-da99fbf28608",
         "category": "Business",
-        "specialization": "Business Plans, Strategy, Market Analysis"
+        "specialization": "Business Plans, Strategy, Market Analysis",
+        "spreadsheet": REAL_SPREADSHEETS["Agent"]
     },
     "Ecom_Agent": {
         "id": "1BWz_FnYdzZyyl4WafSgoZV9rLHC91XOjstDcgwn_k6Y_ECOM",
         "name": "Ecom Agent",
         "description": "E-commerce and online retail management",
         "icon": "🛒",
-        "webhook_url": N8N_WEBHOOK_URL,
+        "webhook_url": WEBHOOK_URL,
+        "bearer_token": BEARER_TOKEN,
         "ai_phone": "+15551000014",
         "ai_assistant_id": "d56551f8-0447-468a-872b-eaa9f830993d",
         "category": "E-commerce",
-        "specialization": "Online Retail, E-commerce Strategy, Sales"
+        "specialization": "Online Retail, E-commerce Strategy, Sales",
+        "spreadsheet": REAL_SPREADSHEETS["Agent"]
     },
     "Agent_Health": {
         "id": "1BWz_FnYdzZyyl4WafSgoZV9rLHC91XOjstDcgwn_k6Y_HEALTH",
         "name": "Agent Health",
         "description": "Health and wellness guidance",
         "icon": "🏥",
-        "webhook_url": N8N_WEBHOOK_URL,
+        "webhook_url": WEBHOOK_URL,
+        "bearer_token": BEARER_TOKEN,
         "ai_phone": "+15551000015",
         "ai_assistant_id": "7b2b8b86-5caa-4f28-8c6b-e7d3d0404f06",
         "category": "Health",
-        "specialization": "Health, Wellness, Medical Information"
+        "specialization": "Health, Wellness, Medical Information",
+        "spreadsheet": REAL_SPREADSHEETS["Agent"]
     },
     "Cinch_Closer": {
         "id": "1BWz_FnYdzZyyl4WafSgoZV9rLHC91XOjstDcgwn_k6Y_CLOSER",
         "name": "Cinch Closer",
         "description": "Sales closing and deal negotiation",
         "icon": "🤝",
-        "webhook_url": N8N_WEBHOOK_URL,
+        "webhook_url": WEBHOOK_URL,
+        "bearer_token": BEARER_TOKEN,
         "ai_phone": "+15551000016",
         "ai_assistant_id": "232f3d9c-18b3-4963-bdd9-e7de3be156ae",
         "category": "Sales",
-        "specialization": "Sales Closing, Negotiation, Deal Making"
+        "specialization": "Sales Closing, Negotiation, Deal Making",
+        "spreadsheet": REAL_SPREADSHEETS["Agent"]
     },
     "DISC_Agent": {
         "id": "1BWz_FnYdzZyyl4WafSgoZV9rLHC91XOjstDcgwn_k6Y_DISC",
         "name": "DISC Agent",
         "description": "DISC personality assessment and analysis",
         "icon": "🎯",
-        "webhook_url": N8N_WEBHOOK_URL,
+        "webhook_url": WEBHOOK_URL,
+        "bearer_token": BEARER_TOKEN,
         "ai_phone": "+15551000017",
         "ai_assistant_id": "41fe59e1-829f-4936-8ee5-eef2bb1287fe",
         "category": "Assessment",
-        "specialization": "DISC Assessment, Personality Analysis"
+        "specialization": "DISC Assessment, Personality Analysis",
+        "spreadsheet": REAL_SPREADSHEETS["Agent"]
     },
     "Biz_Plan_Agent": {
         "id": "1BWz_FnYdzZyyl4WafSgoZV9rLHC91XOjstDcgwn_k6Y_BIZPLAN2",
         "name": "Biz Plan Agent",
         "description": "Advanced business planning and modeling",
         "icon": "📈",
-        "webhook_url": N8N_WEBHOOK_URL,
+        "webhook_url": WEBHOOK_URL,
+        "bearer_token": BEARER_TOKEN,
         "ai_phone": "+15551000018",
         "ai_assistant_id": "87d59105-723b-427e-a18d-da99fbf28608",
         "category": "Business",
-        "specialization": "Business Modeling, Financial Planning"
+        "specialization": "Business Modeling, Financial Planning",
+        "spreadsheet": REAL_SPREADSHEETS["Agent"]
     },
     "Invoice_Agent": {
         "id": "1BWz_FnYdzZyyl4WafSgoZV9rLHC91XOjstDcgwn_k6Y_INVOICE",
         "name": "Invoice Agent",
         "description": "Invoice management and billing automation",
         "icon": "🧾",
-        "webhook_url": N8N_WEBHOOK_URL,
+        "webhook_url": WEBHOOK_URL,
+        "bearer_token": BEARER_TOKEN,
         "ai_phone": "+15551000019",
         "ai_assistant_id": "invoice_assistant_placeholder",
         "category": "Finance",
-        "specialization": "Invoicing, Billing, Payment Processing"
+        "specialization": "Invoicing, Billing, Payment Processing",
+        "spreadsheet": REAL_SPREADSHEETS["Agent"]
     },
     "Agent_Clone": {
         "id": "1BWz_FnYdzZyyl4WafSgoZV9rLHC91XOjstDcgwn_k6Y_CLONE",
         "name": "Agent Clone",
         "description": "AI agent replication and customization",
         "icon": "👥",
-        "webhook_url": N8N_WEBHOOK_URL,
+        "webhook_url": WEBHOOK_URL,
+        "bearer_token": BEARER_TOKEN,
         "ai_phone": "+15551000020",
         "ai_assistant_id": "88862739-c227-4bfc-b90a-5f450a823e23",
         "category": "AI",
-        "specialization": "Agent Cloning, AI Customization"
+        "specialization": "Agent Cloning, AI Customization",
+        "spreadsheet": REAL_SPREADSHEETS["Agent"]
     },
     "Agent_Doctor": {
         "id": "1BWz_FnYdzZyyl4WafSgoZV9rLHC91XOjstDcgwn_k6Y_DOCTOR",
         "name": "Agent Doctor",
         "description": "Medical consultation and health advice",
         "icon": "👨‍⚕️",
-        "webhook_url": N8N_WEBHOOK_URL,
+        "webhook_url": WEBHOOK_URL,
+        "bearer_token": BEARER_TOKEN,
         "ai_phone": "+15551000021",
         "ai_assistant_id": "9d1cccc6-3193-4694-a9f7-853198ee4082",
         "category": "Medical",
-        "specialization": "Medical Consultation, Health Advice"
+        "specialization": "Medical Consultation, Health Advice",
+        "spreadsheet": REAL_SPREADSHEETS["Agent"]
     },
     "Agent_Multi_Lig": {
         "id": "1BWz_FnYdzZyyl4WafSgoZV9rLHC91XOjstDcgwn_k6Y_MULTILIG",
         "name": "Agent Multi Lig",
         "description": "Multi-language translation and communication",
         "icon": "🌍",
-        "webhook_url": N8N_WEBHOOK_URL,
+        "webhook_url": WEBHOOK_URL,
+        "bearer_token": BEARER_TOKEN,
         "ai_phone": "+15551000022",
         "ai_assistant_id": "8f045bce-08bc-4477-8d3d-05f233a44df3",
         "category": "Language",
-        "specialization": "Translation, Multi-language Support"
+        "specialization": "Translation, Multi-language Support",
+        "spreadsheet": REAL_SPREADSHEETS["Agent"]
     },
     "Agent_Real_Estate": {
         "id": "1BWz_FnYdzZyyl4WafSgoZV9rLHC91XOjstDcgwn_k6Y_REALESTATE",
         "name": "Agent Real Estate",
         "description": "Real estate analysis and property management",
         "icon": "🏠",
-        "webhook_url": N8N_WEBHOOK_URL,
+        "webhook_url": WEBHOOK_URL,
+        "bearer_token": BEARER_TOKEN,
         "ai_phone": "+15551000023",
         "ai_assistant_id": "d982667e-d931-477c-9708-c183ba0aa964",
         "category": "Real Estate",
-        "specialization": "Property Analysis, Real Estate Investment"
+        "specialization": "Property Analysis, Real Estate Investment",
+        "spreadsheet": REAL_SPREADSHEETS["Real Estate"]
     },
     "Follow_Up_Agent": {
         "id": "1BWz_FnYdzZyyl4WafSgoZV9rLHC91XOjstDcgwn_k6Y_FOLLOWUP",
         "name": "Follow Up Agent",
         "description": "Customer follow-up and relationship management",
         "icon": "📞",
-        "webhook_url": N8N_WEBHOOK_URL,
+        "webhook_url": WEBHOOK_URL,
+        "bearer_token": BEARER_TOKEN,
         "ai_phone": "+15551000024",
         "ai_assistant_id": "39928b52-d610-43cb-9004-b88028e399fc",
         "category": "CRM",
-        "specialization": "Follow-up, Customer Relations, CRM"
+        "specialization": "Follow-up, Customer Relations, CRM",
+        "spreadsheet": REAL_SPREADSHEETS["Agent"]
     }
 }
 
@@ -313,10 +389,6 @@ def initialize_session_state():
         'authenticated': False,
         'credentials': None,
         'user_info': None,
-        'n8n_authenticated': False,
-        'n8n_username': None,
-        'n8n_password': None,
-        'n8n_bearer_token': None,
         'current_page': 'Agent_CEO',
         'current_tab': 'chatbot',
         'current_spreadsheet': None,
@@ -389,30 +461,13 @@ def authenticate_service_account(json_content):
     except Exception as e:
         return False, f"Google authentication failed: {str(e)}"
 
-def authenticate_n8n(username, password, bearer_token):
-    """Authenticate n8n credentials"""
-    try:
-        # Store n8n credentials
-        st.session_state.n8n_authenticated = True
-        st.session_state.n8n_username = username
-        st.session_state.n8n_password = password
-        st.session_state.n8n_bearer_token = bearer_token
-        
-        return True, "n8n authentication successful!"
-    except Exception as e:
-        return False, f"n8n authentication failed: {str(e)}"
-
 # Helper functions
 def send_message_to_webhook(agent_id, message):
     """Send message to n8n webhook"""
     config = st.session_state.agent_configs[agent_id]
     
-    # Check if n8n is authenticated
-    if not st.session_state.n8n_authenticated:
-        return "Error: Please authenticate with n8n first."
-    
     headers = {
-        "Authorization": f"Bearer {st.session_state.n8n_bearer_token}",
+        "Authorization": f"Bearer {config['bearer_token']}",
         "Content-Type": "application/json"
     }
     
@@ -421,7 +476,6 @@ def send_message_to_webhook(agent_id, message):
         "chatInput": message,
         "agentId": agent_id,
         "agentName": config['name'],
-        "username": st.session_state.n8n_username,
         "timestamp": datetime.now().isoformat()
     }
     
@@ -469,11 +523,46 @@ def send_message_to_webhook(agent_id, message):
 def load_spreadsheet_data(agent_id):
     """Load data for specific agent"""
     try:
-        # Generate sample data based on agent type
+        # Get the agent config
         config = st.session_state.agent_configs[agent_id]
         
+        # Check if we have real spreadsheet data for this agent
+        if 'spreadsheet' in config:
+            spreadsheet_info = config['spreadsheet']
+            spreadsheet_id = spreadsheet_info['id']
+            
+            # If authenticated, try to load real data
+            if st.session_state.authenticated:
+                try:
+                    # Initialize gspread client
+                    gc = gspread.authorize(st.session_state.credentials)
+                    
+                    # Open the spreadsheet
+                    spreadsheet = gc.open_by_key(spreadsheet_id)
+                    
+                    # Get the first worksheet
+                    worksheet = spreadsheet.get_worksheet(0)
+                    
+                    # Get all values
+                    data = worksheet.get_all_records()
+                    
+                    # Convert to DataFrame
+                    df = pd.DataFrame(data)
+                    
+                    # If DataFrame is empty or has no date column, use simulated data
+                    if df.empty or 'Date' not in df.columns:
+                        raise Exception("No valid data found in spreadsheet")
+                    
+                    return df, None
+                except Exception as e:
+                    # Fall back to simulated data
+                    st.warning(f"Could not load real data: {str(e)}. Using simulated data instead.")
+        
+        # Generate sample data based on agent type
+        category = config['category']
+        
         # Create different data patterns based on agent category
-        if config['category'] == 'Finance':
+        if category == 'Finance':
             data = {
                 'Date': [datetime.now().date() - timedelta(days=i) for i in range(30)],
                 'Revenue': [5000 + i*100 + (i%7)*200 for i in range(30)],
@@ -481,7 +570,7 @@ def load_spreadsheet_data(agent_id):
                 'Profit': [3000 + i*50 + (i%3)*150 for i in range(30)],
                 'ROI': [15 + i*0.5 + (i%4)*2 for i in range(30)]
             }
-        elif config['category'] == 'Marketing':
+        elif category == 'Marketing':
             data = {
                 'Date': [datetime.now().date() - timedelta(days=i) for i in range(30)],
                 'Impressions': [10000 + i*200 + (i%6)*500 for i in range(30)],
@@ -489,13 +578,22 @@ def load_spreadsheet_data(agent_id):
                 'Conversions': [25 + i*2 + (i%3)*5 for i in range(30)],
                 'CTR': [5 + i*0.1 + (i%5)*0.5 for i in range(30)]
             }
-        elif config['category'] == 'Sales':
+        elif category == 'Sales':
             data = {
                 'Date': [datetime.now().date() - timedelta(days=i) for i in range(30)],
                 'Leads': [50 + i*2 + (i%7)*5 for i in range(30)],
                 'Qualified_Leads': [25 + i*1 + (i%5)*3 for i in range(30)],
                 'Closed_Deals': [5 + i*0.5 + (i%3)*2 for i in range(30)],
                 'Deal_Value': [2500 + i*100 + (i%4)*300 for i in range(30)]
+            }
+        elif category == 'Real Estate':
+            data = {
+                'Date': [datetime.now().date() - timedelta(days=i) for i in range(30)],
+                'Listings': [20 + i*1 + (i%5)*3 for i in range(30)],
+                'Viewings': [15 + i*0.8 + (i%4)*2 for i in range(30)],
+                'Offers': [5 + i*0.3 + (i%3)*1 for i in range(30)],
+                'Closings': [2 + i*0.1 + (i%6)*0.5 for i in range(30)],
+                'Property_Value': [350000 + i*1000 + (i%4)*5000 for i in range(30)]
             }
         else:
             # Default data structure
@@ -571,42 +669,27 @@ with st.sidebar:
     
     st.divider()
     
-    # n8n Authentication Section
-    if not st.session_state.n8n_authenticated:
-        st.subheader("🔧 n8n Authentication")
-        
-        with st.form("n8n_auth_form"):
-            n8n_username = st.text_input("n8n Username:", placeholder="Enter your n8n username")
-            n8n_password = st.text_input("n8n Password:", type="password", placeholder="Enter your n8n password")
-            n8n_bearer_token = st.text_input("Bearer Token:", placeholder="Enter your bearer token")
-            
-            submitted = st.form_submit_button("🔐 Authenticate n8n")
-            
-            if submitted:
-                if n8n_username and n8n_password and n8n_bearer_token:
-                    success, message = authenticate_n8n(n8n_username, n8n_password, n8n_bearer_token)
-                    
-                    if success:
-                        st.success(message)
-                        st.rerun()
-                    else:
-                        st.error(message)
-                else:
-                    st.warning("Please fill in all n8n credentials")
-    else:
-        st.success(f"✅ n8n Authenticated")
-        st.caption(f"User: {st.session_state.n8n_username}")
-        st.caption(f"Webhook: Connected")
-        
-        if st.button("🚪 Sign Out n8n"):
-            for key in ['n8n_authenticated', 'n8n_username', 'n8n_password', 'n8n_bearer_token']:
-                st.session_state[key] = None if key != 'n8n_authenticated' else False
-            st.rerun()
+    # Configuration Status
+    st.subheader("⚙️ Configuration Status")
+    
+    # Webhook status
+    webhook_status = "✅ Connected" if WEBHOOK_URL != "default_token" else "⚠️ Using Default"
+    st.info(f"**Webhook:** {webhook_status}")
+    st.caption(f"URL: {WEBHOOK_URL[:50]}...")
+    
+    # Bearer token status
+    token_status = "✅ Configured" if BEARER_TOKEN != "default_token" else "⚠️ Using Default"
+    st.info(f"**Bearer Token:** {token_status}")
+    
+    # Spreadsheets status
+    st.info(f"**Real Spreadsheets:** {len(REAL_SPREADSHEETS)} configured")
+    for name, info in REAL_SPREADSHEETS.items():
+        st.caption(f"{info['icon']} {name}: {info['id'][:15]}...")
     
     st.divider()
     
     # Agent Selection
-    if st.session_state.authenticated and st.session_state.n8n_authenticated:
+    if st.session_state.authenticated:
         st.subheader("🤖 Select Agent")
         
         # Category filter
@@ -655,8 +738,9 @@ with st.sidebar:
                 st.code(f"""
 Assistant ID: {config['ai_assistant_id']}
 Phone: {config['ai_phone']}
-n8n Webhook: {config['webhook_url']}
-Sheet ID: {config['id']}
+Webhook: {config['webhook_url']}
+Spreadsheet: {config['spreadsheet']['name'] if 'spreadsheet' in config else 'Default'}
+Spreadsheet ID: {config['spreadsheet']['id'] if 'spreadsheet' in config else 'N/A'}
                 """)
         
         st.divider()
@@ -674,14 +758,10 @@ Sheet ID: {config['id']}
             st.metric("Chat Messages", total_chats)
 
 # Main Content Area
-if not st.session_state.authenticated or not st.session_state.n8n_authenticated:
+if not st.session_state.authenticated:
     st.title("🚀 25-Agent Business Dashboard")
     
-    if not st.session_state.authenticated:
-        st.info("🔐 Please authenticate with Google using the sidebar to access Google Sheets.")
-    
-    if not st.session_state.n8n_authenticated:
-        st.info("🔧 Please authenticate with n8n using the sidebar to enable chat functionality.")
+    st.info("🔐 Please authenticate with Google using the sidebar to access Google Sheets.")
     
     # Feature overview
     st.header("🌟 Platform Features")
@@ -740,6 +820,21 @@ if not st.session_state.authenticated or not st.session_state.n8n_authenticated:
                 st.caption(f"{agent['icon']} {agent['name']}")
             if len(agents_in_category) > 3:
                 st.caption(f"... and {len(agents_in_category) - 3} more")
+    
+    # Real Spreadsheets Overview
+    st.header("📊 Real Spreadsheets Connected")
+    
+    spreadsheet_cols = st.columns(len(REAL_SPREADSHEETS))
+    for i, (name, info) in enumerate(REAL_SPREADSHEETS.items()):
+        with spreadsheet_cols[i]:
+            st.markdown(f"### {info['icon']} {name}")
+            st.caption(f"{info['description']}")
+            st.code(f"ID: {info['id'][:20]}...")
+            
+            # Count agents using this spreadsheet
+            agents_using = sum(1 for agent in AGENTS_CONFIG.values() 
+                             if agent.get('spreadsheet', {}).get('id') == info['id'])
+            st.metric("Agents Using", agents_using)
 
 else:
     # Main dashboard for authenticated users
@@ -837,6 +932,11 @@ else:
     with tab2:
         st.header("📊 Google Sheets Data & Analytics")
         
+        # Show spreadsheet info if available
+        if 'spreadsheet' in current_config:
+            spreadsheet_info = current_config['spreadsheet']
+            st.info(f"📋 Connected to: **{spreadsheet_info['name']}** ({spreadsheet_info['description']}) - ID: `{spreadsheet_info['id']}`")
+        
         # Load data for current agent
         if st.session_state.current_page not in st.session_state.sheets_data:
             with st.spinner("Loading data..."):
@@ -905,6 +1005,18 @@ else:
                                          color_continuous_scale='viridis')
                         fig4.update_layout(height=300)
                         st.plotly_chart(fig4, use_container_width=True)
+            
+            # Correlation heatmap
+            if len(numeric_cols) > 2:
+                st.subheader("🔥 Correlation Analysis")
+                correlation_matrix = df[numeric_cols].corr()
+                fig_heatmap = px.imshow(correlation_matrix, 
+                                       text_auto=True, 
+                                       aspect="auto",
+                                       title="Metrics Correlation Heatmap",
+                                       color_continuous_scale='RdBu')
+                fig_heatmap.update_layout(height=400)
+                st.plotly_chart(fig_heatmap, use_container_width=True)
             
             # Data table with filtering
             st.subheader("📋 Data Table")
@@ -1181,9 +1293,10 @@ else:
                 "Agent ID": st.session_state.current_page,
                 "AI Assistant ID": current_config['ai_assistant_id'],
                 "Phone Number": current_config['ai_phone'],
-                "n8n Webhook": current_config['webhook_url'],
-                "Spreadsheet ID": current_config['id'],
-                "n8n Username": st.session_state.n8n_username,
+                "Webhook URL": current_config['webhook_url'],
+                "Bearer Token": current_config['bearer_token'][:20] + "...",
+                "Spreadsheet": current_config['spreadsheet']['name'] if 'spreadsheet' in current_config else 'Default',
+                "Spreadsheet ID": current_config['spreadsheet']['id'] if 'spreadsheet' in current_config else 'N/A',
                 "Category": current_config['category'],
                 "Specialization": current_config['specialization']
             }
@@ -1214,7 +1327,7 @@ else:
         
         st.divider()
         
-        # Prompt Library (same as before but with updated references)
+        # Prompt Library
         st.subheader("📚 Prompt Library")
         
         # Category-based prompts
@@ -1414,7 +1527,7 @@ else:
 st.divider()
 
 # Performance summary
-if st.session_state.authenticated and st.session_state.n8n_authenticated:
+if st.session_state.authenticated:
     st.subheader("📊 Session Summary")
     
     summary_col1, summary_col2, summary_col3, summary_col4 = st.columns(4)
@@ -1436,12 +1549,15 @@ if st.session_state.authenticated and st.session_state.n8n_authenticated:
 
 st.caption("🚀 25-Agent Business Dashboard | Powered by AI & n8n | Built with Streamlit")
 
-print("✅ 25-Agent Business Dashboard with n8n integration successfully created!")
+print("✅ 25-Agent Business Dashboard successfully created!")
 print("\n🎯 Features implemented:")
 print("- 25 specialized AI agents with real assistant IDs")
 print("- Unified n8n webhook integration for all agents")
-print("- Dual authentication: Google Sheets + n8n")
-print("- White-labeled interface (removed VAPI branding)")
+print("- Simplified authentication: Google Sheets + Bearer Token")
+print("- Real spreadsheet IDs integrated:")
+print("  • Grant: 1t80HNEgDIBFElZqodlvfaEuRj-bPlS4-R8T9kdLBtFk")
+print("  • Real Estate: 1BWz_FnYdzZyyl4WafSgoZV9rLHC91XOjstDcgwn_k6Y")
+print("  • Agent: 1Om-RVVChe1GItsY4YaN_K95iM44vTpoxpSXzwTnOdAo")
 print("- Individual Google Sheets integration per agent")
 print("- AI voice calling system with call management")
 print("- Comprehensive prompt library with favorites")
@@ -1453,11 +1569,16 @@ print("- Session management and performance tracking")
 print("- Responsive design with intuitive navigation")
 print("\n🔧 Technical specifications:")
 print("- Google Service account authentication")
-print("- n8n username/password/bearer token authentication")
+print("- Streamlit secrets integration for webhook and bearer token")
 print("- Unified webhook URL for all agents")
 print("- Real assistant IDs integrated")
 print("- Dynamic data generation based on agent categories")
 print("- Persistent session state management")
 print("- Modular architecture for easy expansion")
 print("- White-labeled branding throughout")
-
+print("\n📋 Setup Instructions:")
+print("1. Add to Streamlit secrets:")
+print('   WEBHOOK_URL = "https://agentonline-u29564.vm.elestio.app/webhook/42e650d7-3e50-4dda-bf4f-d3e16b1cd"')
+print('   BEARER_TOKEN = "your_bearer_token_here"')
+print("2. Upload Google Service Account JSON file")
+print("3. Ready to use!")
