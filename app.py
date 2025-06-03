@@ -478,7 +478,7 @@ def render_chatbot_page(agent_key, agent_config):
         with st.spinner("Agent is replying..."):
             response = send_message_to_agent(agent_config, user_input, chat_session["session_id"])
         chat_session["history"].append({"role": "agent", "content": response})
-        st.experimental_rerun()
+        st.rerun()
 
     # Option to clear chat
     if st.button("Clear Conversation", key=f"clear_{agent_key}"):
