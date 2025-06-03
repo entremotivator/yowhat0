@@ -521,7 +521,7 @@ def send_message_to_webhook(agent_id, message):
         return f"Error: {str(e)}"
 
 def load_spreadsheet_data(agent_id):
-    """Load data for specific agent"""
+    """Load data for specific agent - ONLY REAL DATA FROM SHEETS"""
     try:
         # Get the agent config
         config = st.session_state.agent_configs[agent_id]
@@ -531,7 +531,7 @@ def load_spreadsheet_data(agent_id):
             spreadsheet_info = config['spreadsheet']
             spreadsheet_id = spreadsheet_info['id']
             
-            # If authenticated, try to load real data
+            # Only proceed if authenticated
             if st.session_state.authenticated:
                 try:
                     # Initialize gspread client
@@ -540,73 +540,52 @@ def load_spreadsheet_data(agent_id):
                     # Open the spreadsheet
                     spreadsheet = gc.open_by_key(spreadsheet_id)
                     
+                    # Get all worksheets
+                    worksheets = spreadsheet.worksheets()
+                    
+                    if not worksheets:
+                        return None, "No worksheets found in the spreadsheet."
+                    
                     # Get the first worksheet
-                    worksheet = spreadsheet.get_worksheet(0)
+                    worksheet = worksheets[0]
                     
                     # Get all values
                     data = worksheet.get_all_records()
                     
+                    if not data:
+                        return None, f"No data found in worksheet '{worksheet.title}'. Please add data to the spreadsheet first."
+                    
                     # Convert to DataFrame
                     df = pd.DataFrame(data)
                     
-                    # If DataFrame is empty or has no date column, use simulated data
-                    if df.empty or 'Date' not in df.columns:
-                        raise Exception("No valid data found in spreadsheet")
+                    # Clean the data - remove empty rows
+                    df = df.dropna(how='all')
+                    
+                    if df.empty:
+                        return None, f"Spreadsheet '{spreadsheet_info['name']}' contains no valid data. Please add data to the spreadsheet."
+                    
+                    # Convert date columns if they exist
+                    date_columns = ['Date', 'date', 'DATE', 'Created', 'created', 'Timestamp', 'timestamp']
+                    for col in df.columns:
+                        if col in date_columns:
+                            try:
+                                df[col] = pd.to_datetime(df[col], errors='coerce')
+                            except:
+                                pass
                     
                     return df, None
+                    
+                except gspread.exceptions.SpreadsheetNotFound:
+                    return None, f"Spreadsheet with ID '{spreadsheet_id}' not found. Please check the spreadsheet ID and permissions."
+                except gspread.exceptions.APIError as e:
+                    return None, f"Google Sheets API error: {str(e)}. Please check your permissions and try again."
                 except Exception as e:
-                    # Fall back to simulated data
-                    st.warning(f"Could not load real data: {str(e)}. Using simulated data instead.")
-        
-        # Generate sample data based on agent type
-        category = config['category']
-        
-        # Create different data patterns based on agent category
-        if category == 'Finance':
-            data = {
-                'Date': [datetime.now().date() - timedelta(days=i) for i in range(30)],
-                'Revenue': [5000 + i*100 + (i%7)*200 for i in range(30)],
-                'Expenses': [2000 + i*50 + (i%5)*100 for i in range(30)],
-                'Profit': [3000 + i*50 + (i%3)*150 for i in range(30)],
-                'ROI': [15 + i*0.5 + (i%4)*2 for i in range(30)]
-            }
-        elif category == 'Marketing':
-            data = {
-                'Date': [datetime.now().date() - timedelta(days=i) for i in range(30)],
-                'Impressions': [10000 + i*200 + (i%6)*500 for i in range(30)],
-                'Clicks': [500 + i*10 + (i%4)*25 for i in range(30)],
-                'Conversions': [25 + i*2 + (i%3)*5 for i in range(30)],
-                'CTR': [5 + i*0.1 + (i%5)*0.5 for i in range(30)]
-            }
-        elif category == 'Sales':
-            data = {
-                'Date': [datetime.now().date() - timedelta(days=i) for i in range(30)],
-                'Leads': [50 + i*2 + (i%7)*5 for i in range(30)],
-                'Qualified_Leads': [25 + i*1 + (i%5)*3 for i in range(30)],
-                'Closed_Deals': [5 + i*0.5 + (i%3)*2 for i in range(30)],
-                'Deal_Value': [2500 + i*100 + (i%4)*300 for i in range(30)]
-            }
-        elif category == 'Real Estate':
-            data = {
-                'Date': [datetime.now().date() - timedelta(days=i) for i in range(30)],
-                'Listings': [20 + i*1 + (i%5)*3 for i in range(30)],
-                'Viewings': [15 + i*0.8 + (i%4)*2 for i in range(30)],
-                'Offers': [5 + i*0.3 + (i%3)*1 for i in range(30)],
-                'Closings': [2 + i*0.1 + (i%6)*0.5 for i in range(30)],
-                'Property_Value': [350000 + i*1000 + (i%4)*5000 for i in range(30)]
-            }
+                    return None, f"Error loading spreadsheet data: {str(e)}"
+            else:
+                return None, "Please authenticate with Google to access spreadsheet data."
         else:
-            # Default data structure
-            data = {
-                'Date': [datetime.now().date() - timedelta(days=i) for i in range(30)],
-                'Metric_1': [100 + i*5 + (i%6)*10 for i in range(30)],
-                'Metric_2': [75 + i*3 + (i%4)*8 for i in range(30)],
-                'Metric_3': [50 + i*2 + (i%5)*6 for i in range(30)],
-                'Performance': [85 + i*0.5 + (i%3)*3 for i in range(30)]
-            }
-        
-        df = pd.DataFrame(data)
-        return df, None
+            return None, f"No spreadsheet configured for {config['name']}."
+            
     except Exception as e:
         return None, f"Error loading data: {str(e)}"
 
@@ -967,106 +946,179 @@ else:
         
         # Load data for current agent
         if st.session_state.current_page not in st.session_state.sheets_data:
-            with st.spinner("Loading data..."):
+            with st.spinner("Loading data from Google Sheets..."):
                 df, error = load_spreadsheet_data(st.session_state.current_page)
                 if error:
-                    st.error(error)
+                    st.error(f"❌ {error}")
+                    
+                    # Show helpful instructions
+                    st.markdown("""
+                    ### 📝 To view data in this section:
+                    
+                    1. **Ensure you're authenticated** with Google (check sidebar)
+                    2. **Add data to your Google Sheet** with the configured spreadsheet ID
+                    3. **Make sure the spreadsheet is shared** with your service account email
+                    4. **Include column headers** in your first row
+                    5. **Click 'Refresh Data'** button below to reload
+                    
+                    **Spreadsheet Requirements:**
+                    - At least one row of data (excluding headers)
+                    - Proper column names in the first row
+                    - Accessible to your service account
+                    """)
+                    
+                    if st.button("🔄 Refresh Data", key="refresh_error"):
+                        # Clear cached data and try again
+                        if st.session_state.current_page in st.session_state.sheets_data:
+                            del st.session_state.sheets_data[st.session_state.current_page]
+                        st.rerun()
+                    
+                    return  # Exit early if no data
                 else:
                     st.session_state.sheets_data[st.session_state.current_page] = df
         
         if st.session_state.current_page in st.session_state.sheets_data:
             df = st.session_state.sheets_data[st.session_state.current_page]
             
+            # Show data info
+            st.success(f"✅ Successfully loaded {len(df)} rows and {len(df.columns)} columns from Google Sheets")
+            
             # Data overview metrics
             st.subheader("📈 Key Metrics")
             
             # Dynamic metrics based on data columns
             numeric_cols = df.select_dtypes(include=['number']).columns.tolist()
-            if len(numeric_cols) >= 4:
-                col1, col2, col3, col4 = st.columns(4)
-                with col1:
-                    st.metric(numeric_cols[0], f"{df[numeric_cols[0]].iloc[-1]:,.0f}", 
-                             delta=f"{df[numeric_cols[0]].iloc[-1] - df[numeric_cols[0]].iloc[-2]:,.0f}")
-                with col2:
-                    st.metric(numeric_cols[1], f"{df[numeric_cols[1]].iloc[-1]:,.0f}",
-                             delta=f"{df[numeric_cols[1]].iloc[-1] - df[numeric_cols[1]].iloc[-2]:,.0f}")
-                with col3:
-                    st.metric(numeric_cols[2], f"{df[numeric_cols[2]].iloc[-1]:,.0f}",
-                             delta=f"{df[numeric_cols[2]].iloc[-1] - df[numeric_cols[2]].iloc[-2]:,.0f}")
-                with col4:
-                    if len(numeric_cols) > 3:
-                        st.metric(numeric_cols[3], f"{df[numeric_cols[3]].iloc[-1]:,.1f}",
-                                 delta=f"{df[numeric_cols[3]].iloc[-1] - df[numeric_cols[3]].iloc[-2]:,.1f}")
+            
+            if len(numeric_cols) >= 1:
+                # Create metrics based on available numeric columns
+                metric_cols = st.columns(min(4, len(numeric_cols)))
+                
+                for i, col in enumerate(numeric_cols[:4]):  # Show up to 4 metrics
+                    with metric_cols[i]:
+                        if len(df) >= 2:
+                            current_val = df[col].iloc[-1] if not pd.isna(df[col].iloc[-1]) else 0
+                            prev_val = df[col].iloc[-2] if not pd.isna(df[col].iloc[-2]) else 0
+                            delta = current_val - prev_val
+                            
+                            # Format numbers appropriately
+                            if abs(current_val) >= 1000000:
+                                display_val = f"{current_val/1000000:.1f}M"
+                            elif abs(current_val) >= 1000:
+                                display_val = f"{current_val/1000:.1f}K"
+                            else:
+                                display_val = f"{current_val:,.1f}"
+                            
+                            st.metric(col, display_val, delta=f"{delta:,.1f}")
+                        else:
+                            st.metric(col, f"{df[col].iloc[-1]:,.1f}" if not pd.isna(df[col].iloc[-1]) else "N/A")
+            else:
+                st.info("📊 No numeric columns found for metrics. Add numeric data to see key performance indicators.")
             
             # Data visualization
-            st.subheader("📊 Performance Visualizations")
+            st.subheader("📊 Data Visualizations")
             
-            viz_col1, viz_col2 = st.columns(2)
-            
-            with viz_col1:
-                if len(numeric_cols) >= 2:
-                    fig1 = px.line(df, x='Date', y=numeric_cols[0], 
-                                  title=f'{numeric_cols[0]} Trend',
-                                  color_discrete_sequence=['#1f77b4'])
-                    fig1.update_layout(height=300)
-                    st.plotly_chart(fig1, use_container_width=True)
-                    
-                    if len(numeric_cols) >= 3:
-                        fig3 = px.bar(df.tail(10), x='Date', y=numeric_cols[2], 
-                                     title=f'Recent {numeric_cols[2]}',
-                                     color_discrete_sequence=['#2ca02c'])
-                        fig3.update_layout(height=300)
-                        st.plotly_chart(fig3, use_container_width=True)
-            
-            with viz_col2:
-                if len(numeric_cols) >= 2:
-                    fig2 = px.area(df, x='Date', y=numeric_cols[1], 
-                                  title=f'{numeric_cols[1]} Over Time',
-                                  color_discrete_sequence=['#ff7f0e'])
-                    fig2.update_layout(height=300)
-                    st.plotly_chart(fig2, use_container_width=True)
-                    
-                    if len(numeric_cols) >= 4:
-                        fig4 = px.scatter(df, x=numeric_cols[0], y=numeric_cols[1], 
-                                         size=numeric_cols[2], color=numeric_cols[3],
-                                         title='Multi-Metric Analysis',
-                                         color_continuous_scale='viridis')
-                        fig4.update_layout(height=300)
-                        st.plotly_chart(fig4, use_container_width=True)
-            
-            # Correlation heatmap
-            if len(numeric_cols) > 2:
-                st.subheader("🔥 Correlation Analysis")
-                correlation_matrix = df[numeric_cols].corr()
-                fig_heatmap = px.imshow(correlation_matrix, 
-                                       text_auto=True, 
-                                       aspect="auto",
-                                       title="Metrics Correlation Heatmap",
-                                       color_continuous_scale='RdBu')
-                fig_heatmap.update_layout(height=400)
-                st.plotly_chart(fig_heatmap, use_container_width=True)
+            if len(numeric_cols) >= 1:
+                viz_col1, viz_col2 = st.columns(2)
+                
+                # Find date column for time series
+                date_cols = [col for col in df.columns if 'date' in col.lower() or 'time' in col.lower() or 'created' in col.lower()]
+                date_col = date_cols[0] if date_cols else None
+                
+                with viz_col1:
+                    if date_col and len(numeric_cols) >= 1:
+                        # Time series chart
+                        fig1 = px.line(df, x=date_col, y=numeric_cols[0], 
+                                      title=f'{numeric_cols[0]} Over Time',
+                                      color_discrete_sequence=['#1f77b4'])
+                        fig1.update_layout(height=300)
+                        st.plotly_chart(fig1, use_container_width=True)
+                    elif len(numeric_cols) >= 1:
+                        # Bar chart if no date column
+                        fig1 = px.bar(df.head(10), x=df.columns[0], y=numeric_cols[0], 
+                                     title=f'{numeric_cols[0]} by {df.columns[0]}',
+                                     color_discrete_sequence=['#1f77b4'])
+                        fig1.update_layout(height=300)
+                        st.plotly_chart(fig1, use_container_width=True)
+                
+                with viz_col2:
+                    if len(numeric_cols) >= 2:
+                        if date_col:
+                            # Second time series
+                            fig2 = px.area(df, x=date_col, y=numeric_cols[1], 
+                                          title=f'{numeric_cols[1]} Over Time',
+                                          color_discrete_sequence=['#ff7f0e'])
+                            fig2.update_layout(height=300)
+                            st.plotly_chart(fig2, use_container_width=True)
+                        else:
+                            # Scatter plot
+                            fig2 = px.scatter(df, x=numeric_cols[0], y=numeric_cols[1], 
+                                             title=f'{numeric_cols[1]} vs {numeric_cols[0]}',
+                                             color_discrete_sequence=['#ff7f0e'])
+                            fig2.update_layout(height=300)
+                            st.plotly_chart(fig2, use_container_width=True)
+                    else:
+                        # Histogram if only one numeric column
+                        fig2 = px.histogram(df, x=numeric_cols[0], 
+                                           title=f'Distribution of {numeric_cols[0]}',
+                                           color_discrete_sequence=['#ff7f0e'])
+                        fig2.update_layout(height=300)
+                        st.plotly_chart(fig2, use_container_width=True)
+                
+                # Correlation heatmap if multiple numeric columns
+                if len(numeric_cols) > 2:
+                    st.subheader("🔥 Correlation Analysis")
+                    correlation_matrix = df[numeric_cols].corr()
+                    fig_heatmap = px.imshow(correlation_matrix, 
+                                           text_auto=True, 
+                                           aspect="auto",
+                                           title="Metrics Correlation Heatmap",
+                                           color_continuous_scale='RdBu')
+                    fig_heatmap.update_layout(height=400)
+                    st.plotly_chart(fig_heatmap, use_container_width=True)
+            else:
+                st.info("📈 Add numeric columns to your spreadsheet to see data visualizations.")
             
             # Data table with filtering
             st.subheader("📋 Data Table")
             
             # Add filters
             filter_col1, filter_col2 = st.columns(2)
+            
             with filter_col1:
-                date_range = st.date_input(
-                    "Date Range:",
-                    value=(df['Date'].min(), df['Date'].max()),
-                    min_value=df['Date'].min(),
-                    max_value=df['Date'].max()
-                )
+                # Date filter if date column exists
+                date_cols = [col for col in df.columns if 'date' in col.lower() or 'time' in col.lower()]
+                if date_cols:
+                    date_col = date_cols[0]
+                    try:
+                        df[date_col] = pd.to_datetime(df[date_col], errors='coerce')
+                        min_date = df[date_col].min().date()
+                        max_date = df[date_col].max().date()
+                        date_range = st.date_input(
+                            "Date Range:",
+                            value=(min_date, max_date),
+                            min_value=min_date,
+                            max_value=max_date
+                        )
+                    except:
+                        date_range = None
+                else:
+                    st.info("No date columns found for filtering")
+                    date_range = None
             
             with filter_col2:
                 show_rows = st.selectbox("Show rows:", [10, 20, 50, "All"], index=1)
             
             # Apply filters
-            filtered_df = df[
-                (df['Date'] >= date_range[0]) & 
-                (df['Date'] <= date_range[1])
-            ]
+            filtered_df = df.copy()
+            
+            if date_range and date_cols:
+                try:
+                    filtered_df = filtered_df[
+                        (filtered_df[date_cols[0]].dt.date >= date_range[0]) & 
+                        (filtered_df[date_cols[0]].dt.date <= date_range[1])
+                    ]
+                except:
+                    pass  # Skip date filtering if it fails
             
             if show_rows != "All":
                 filtered_df = filtered_df.tail(show_rows)
@@ -1097,13 +1149,10 @@ else:
             
             with export_col3:
                 if st.button("🔄 Refresh Data"):
-                    df, error = load_spreadsheet_data(st.session_state.current_page)
-                    if error:
-                        st.error(error)
-                    else:
-                        st.session_state.sheets_data[st.session_state.current_page] = df
-                        st.success("✅ Data refreshed!")
-                        st.rerun()
+                    # Clear cached data and reload
+                    if st.session_state.current_page in st.session_state.sheets_data:
+                        del st.session_state.sheets_data[st.session_state.current_page]
+                    st.rerun()
             
             with export_col4:
                 if st.button("📊 Generate Report"):
@@ -1579,7 +1628,7 @@ print("✅ 25-Agent Business Dashboard successfully created!")
 print("\n🎯 Features implemented:")
 print("- 25 specialized AI agents with real assistant IDs")
 print("- Unified n8n webhook integration for all agents")
-print("- Simplified authentication: Google Sheets + Bearer Token")
+print("- Google Sheets authentication with REAL DATA ONLY")
 print("- Real spreadsheet IDs integrated:")
 print("  • Grant: 1t80HNEgDIBFElZqodlvfaEuRj-bPlS4-R8T9kdLBtFk")
 print("  • Real Estate: 1BWz_FnYdzZyyl4WafSgoZV9rLHC91XOjstDcgwn_k6Y")
@@ -1587,7 +1636,7 @@ print("  • Agent: 1Om-RVVChe1GItsY4YaN_K95iM44vTpoxpSXzwTnOdAo")
 print("- Individual Google Sheets integration per agent")
 print("- AI voice calling system with call management")
 print("- Comprehensive prompt library with favorites")
-print("- Real-time data visualization and analytics")
+print("- Real-time data visualization ONLY from actual spreadsheet data")
 print("- Voice recognition and text-to-speech support")
 print("- Export/import capabilities for data and prompts")
 print("- Category-based agent filtering")
@@ -1595,18 +1644,21 @@ print("- Session management and performance tracking")
 print("- Responsive design with intuitive navigation")
 print("- Clear page navigation buttons for each agent")
 print("- Improved home page category layout")
+print("- NO DEMO DATA - Only real Google Sheets data displayed")
 print("\n🔧 Technical specifications:")
 print("- Google Service account authentication")
 print("- Streamlit secrets integration for webhook and bearer token")
 print("- Unified webhook URL for all agents")
 print("- Real assistant IDs integrated")
-print("- Dynamic data generation based on agent categories")
+print("- Dynamic data visualization based on actual spreadsheet content")
 print("- Persistent session state management")
 print("- Modular architecture for easy expansion")
 print("- White-labeled branding throughout")
+print("- Proper error handling for missing or empty spreadsheets")
 print("\n📋 Setup Instructions:")
 print("1. Add to Streamlit secrets:")
 print('   WEBHOOK_URL = "https://agentonline-u29564.vm.elestio.app/webhook/42e650d7-3e50-4dda-bf4f-d3e16b1cd"')
 print('   BEARER_TOKEN = "your_bearer_token_here"')
 print("2. Upload Google Service Account JSON file")
-print("3. Ready to use!")
+print("3. Add data to your Google Sheets")
+print("4. Ready to use!")
