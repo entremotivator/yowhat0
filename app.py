@@ -937,45 +937,57 @@ else:
             st.rerun()
     
     elif st.session_state.current_tab == 'data':
-        st.header("📊 Google Sheets Data & Analytics")
-        
-        # Show spreadsheet info if available
-        if 'spreadsheet' in current_config:
-            spreadsheet_info = current_config['spreadsheet']
-            st.info(f"📋 Connected to: **{spreadsheet_info['name']}** ({spreadsheet_info['description']}) - ID: `{spreadsheet_info['id']}`")
-        
-        # Load data for current agent
-        if st.session_state.current_page not in st.session_state.sheets_data:
-            with st.spinner("Loading data from Google Sheets..."):
-                df, error = load_spreadsheet_data(st.session_state.current_page)
-                if error:
-                    st.error(f"❌ {error}")
-                    
-                    # Show helpful instructions
-                    st.markdown("""
-                    ### 📝 To view data in this section:
-                    
-                    1. **Ensure you're authenticated** with Google (check sidebar)
-                    2. **Add data to your Google Sheet** with the configured spreadsheet ID
-                    3. **Make sure the spreadsheet is shared** with your service account email
-                    4. **Include column headers** in your first row
-                    5. **Click 'Refresh Data'** button below to reload
-                    
-                    **Spreadsheet Requirements:**
-                    - At least one row of data (excluding headers)
-                    - Proper column names in the first row
-                    - Accessible to your service account
-                    """)
-                    
-                    if st.button("🔄 Refresh Data", key="refresh_error"):
-                        # Clear cached data and try again
-                        if st.session_state.current_page in st.session_state.sheets_data:
-                            del st.session_state.sheets_data[st.session_state.current_page]
-                        st.rerun()
-                    
-                    return  # Exit early if no data
-                else:
-                    st.session_state.sheets_data[st.session_state.current_page] = df
+    st.header("📊 Google Sheets Data & Analytics")
+
+    # Ensure current_config exists
+    current_config = st.session_state.get('current_config', {})
+
+    # Show spreadsheet info if available
+    spreadsheet_info = current_config.get('spreadsheet')
+    if spreadsheet_info:
+        st.info(
+            f"📋 Connected to: **{spreadsheet_info.get('name', 'Unknown')}** "
+            f"({spreadsheet_info.get('description', '')}) - "
+            f"ID: `{spreadsheet_info.get('id', 'N/A')}`"
+        )
+
+    # Ensure sheets_data is initialized
+    if 'sheets_data' not in st.session_state:
+        st.session_state.sheets_data = {}
+
+    # Load data for current agent/page
+    current_page = st.session_state.get('current_page')
+    if current_page not in st.session_state.sheets_data:
+        with st.spinner("Loading data from Google Sheets..."):
+            df, error = load_spreadsheet_data(current_page)
+            if error:
+                st.error(f"❌ {error}")
+
+                # Show helpful instructions
+                st.markdown("""
+                ### 📝 To view data in this section:
+
+                1. **Ensure you're authenticated** with Google (check sidebar)
+                2. **Add data to your Google Sheet** with the configured spreadsheet ID
+                3. **Make sure the spreadsheet is shared** with your service account email
+                4. **Include column headers** in your first row
+                5. **Click 'Refresh Data'** button below to reload
+
+                **Spreadsheet Requirements:**
+                - At least one row of data (excluding headers)
+                - Proper column names in the first row
+                - Accessible to your service account
+                """)
+
+                if st.button("🔄 Refresh Data", key="refresh_error"):
+                    # Clear cached data and try again
+                    if current_page in st.session_state.sheets_data:
+                        del st.session_state.sheets_data[current_page]
+                    st.rerun()
+
+                st.stop()  # Exit early if no data
+            else:
+                st.session_state.sheets_data[current_page] = df
         
         if st.session_state.current_page in st.session_state.sheets_data:
             df = st.session_state.sheets_data[st.session_state.current_page]
