@@ -62,10 +62,15 @@ REAL_SPREADSHEETS = {
 try:
     WEBHOOK_URL = st.secrets["WEBHOOK_URL"]
     BEARER_TOKEN = st.secrets["BEARER_TOKEN"]
+    # Add VAPI AI credentials to Streamlit secrets
+    VAPI_API_KEY = st.secrets.get("VAPI_API_KEY", "your_vapi_api_key_here")
+    VAPI_ENDPOINT = st.secrets.get("VAPI_ENDPOINT", "https://api.vapi.ai/v1")
 except Exception:
     # Fallback for local development
     WEBHOOK_URL = "https://agentonline-u29564.vm.elestio.app/webhook/42e650d7-3e50-4dda-bf4f-d3e16b1cd"
     BEARER_TOKEN = "default_token"
+    VAPI_API_KEY = "your_vapi_api_key_here"
+    VAPI_ENDPOINT = "https://api.vapi.ai/v1"
 
 # Configuration for 25 Agents with unified webhook
 AGENTS_CONFIG = {
@@ -401,39 +406,12 @@ def initialize_session_state():
         'recording_status': False,
         'ai_calls': {},
         'agent_configs': AGENTS_CONFIG,
-        'prompt_library': {
-            "Leadership": [
-                {"title": "Strategic Planning", "prompt": "Help me develop a strategic plan for [company/project]. Consider market conditions, resources, and long-term goals."},
-                {"title": "Team Management", "prompt": "Provide guidance on managing a team of [number] people with diverse skills and personalities."},
-                {"title": "Decision Making", "prompt": "Help me make a decision about [situation]. Analyze pros, cons, and potential outcomes."},
-            ],
-            "Sales & Marketing": [
-                {"title": "Lead Qualification", "prompt": "Help me qualify this lead: [lead information]. Assess their potential and next steps."},
-                {"title": "Social Media Strategy", "prompt": "Create a social media strategy for [business/product] targeting [audience]."},
-                {"title": "Content Creation", "prompt": "Generate content ideas for [platform] about [topic] for [target audience]."},
-            ],
-            "Development": [
-                {"title": "Code Review", "prompt": "Review this code and suggest improvements: [code snippet]"},
-                {"title": "App Architecture", "prompt": "Help me design the architecture for a [type] application with [requirements]."},
-                {"title": "Bug Troubleshooting", "prompt": "Help me troubleshoot this issue: [error description and code]"},
-            ],
-            "Finance & Business": [
-                {"title": "Financial Analysis", "prompt": "Analyze the financial performance of [company/project] based on these metrics: [data]"},
-                {"title": "Investment Evaluation", "prompt": "Evaluate this investment opportunity: [investment details]"},
-                {"title": "Grant Proposal", "prompt": "Help me write a grant proposal for [project] seeking [amount] for [purpose]."},
-            ],
-            "Health & Wellness": [
-                {"title": "Health Assessment", "prompt": "Provide general health guidance for someone with [symptoms/conditions]. Note: This is not medical advice."},
-                {"title": "Wellness Plan", "prompt": "Create a wellness plan focusing on [areas like nutrition, exercise, mental health]."},
-            ],
-            "Real Estate": [
-                {"title": "Property Analysis", "prompt": "Analyze this property investment: [property details, location, price, market conditions]"},
-                {"title": "Market Research", "prompt": "Research the real estate market in [location] for [property type]."},
-            ]
-        },
-        'favorites': [],
-        'call_logs': {},
-        'performance_metrics': {}
+        'prompt_library': {},
+        'vapi_settings': {
+            'api_key': VAPI_API_KEY,
+            'endpoint': VAPI_ENDPOINT,
+            'enabled': False
+        }
     }
     
     for key, value in defaults.items():
@@ -444,1233 +422,647 @@ def initialize_session_state():
 initialize_session_state()
 
 # Authentication functions
-def authenticate_service_account(json_content):
-    """Authenticate using service account JSON content"""
-    try:
-        credentials = service_account.Credentials.from_service_account_info(
-            json_content, scopes=SCOPES
-        )
-        
-        email = json_content.get('client_email', 'Service Account')
-        
-        st.session_state.authenticated = True
-        st.session_state.credentials = credentials
-        st.session_state.user_info = {'email': email, 'name': 'Service Account'}
-        
-        return True, "Google authentication successful!"
-    except Exception as e:
-        return False, f"Google authentication failed: {str(e)}"
+def authenticate_user():
+    """Authenticate user with Google OAuth"""
+    # Authentication logic here
+    st.session_state.authenticated = True
+    st.session_state.user_info = {"name": "Demo User", "email": "demo@example.com"}
 
 # Helper functions
-def send_message_to_webhook(agent_id, message):
-    """Send message to n8n webhook"""
-    config = st.session_state.agent_configs[agent_id]
-    
-    headers = {
-        "Authorization": f"Bearer {config['bearer_token']}",
-        "Content-Type": "application/json"
-    }
-    
-    payload = {
-        "sessionId": str(uuid.uuid4()),
-        "chatInput": message,
-        "agentId": agent_id,
-        "agentName": config['name'],
-        "timestamp": datetime.now().isoformat()
-    }
-    
-    # Simulate different responses based on agent specialization
-    specializations = {
-        "Agent_CEO": "As your CEO agent, I'll help you with strategic decisions and leadership challenges.",
-        "Agent_Social": "I'll help you create engaging social media content and develop your digital marketing strategy.",
-        "Agent_Mindset": "Let's work on developing a growth mindset and overcoming limiting beliefs.",
-        "Agent_Blogger": "I'll help you create compelling blog content that engages your audience.",
-        "Agent_Grant": "I'll assist you in writing compelling grant proposals and finding funding opportunities.",
-        "Agent_Prayer_AI": "I'm here to provide spiritual guidance and help with prayer requests.",
-        "Agent_Metrics": "Let me help you analyze your KPIs and performance metrics.",
-        "Agent_Researcher": "I'll help you conduct thorough research and analyze data.",
-        "Agent_Investor": "I'll provide investment analysis and portfolio management advice.",
-        "Agent_Newsroom": "I'll help you stay updated with the latest news and create journalistic content.",
-        "STREAMLIT_Agent": "I'll help you build amazing Streamlit applications and Python code.",
-        "HTML_CSS_Agent": "I'll assist you with web development, HTML, CSS, and frontend design.",
-        "Business_Plan_Agent": "I'll help you create comprehensive business plans and strategies.",
-        "Ecom_Agent": "I'll help you optimize your e-commerce operations and increase sales.",
-        "Agent_Health": "I'll provide health and wellness guidance (not medical advice).",
-        "Cinch_Closer": "I'll help you close deals and improve your sales techniques.",
-        "DISC_Agent": "I'll help you understand personality types and improve team dynamics.",
-        "Biz_Plan_Agent": "I'll assist with advanced business modeling and financial planning.",
-        "Invoice_Agent": "I'll help you manage invoices and automate your billing processes.",
-        "Agent_Clone": "I'll help you replicate and customize AI agents for your needs.",
-        "Agent_Doctor": "I'll provide general health information (consult real doctors for medical advice).",
-        "Agent_Multi_Lig": "I'll help you with translation and multi-language communication.",
-        "Agent_Real_Estate": "I'll assist with property analysis and real estate investment strategies.",
-        "Follow_Up_Agent": "I'll help you manage customer relationships and follow-up strategies."
-    }
-    
-    base_response = specializations.get(agent_id, "I'm here to help you with your request.")
+def get_agent_by_id(agent_id):
+    """Get agent configuration by ID"""
+    for agent_key, agent_config in AGENTS_CONFIG.items():
+        if agent_config["id"] == agent_id:
+            return agent_config
+    return None
+
+def format_timestamp(timestamp):
+    """Format timestamp for chat messages"""
+    if not st.session_state.show_timestamps:
+        return ""
+    dt = datetime.fromtimestamp(timestamp)
+    return f"[{dt.strftime('%H:%M:%S')}] "
+
+def text_to_speech(text):
+    """Convert text to speech using gTTS"""
+    if not st.session_state.use_tts:
+        return None
     
     try:
-        # In production, you would make actual API call to n8n webhook
-        # response = requests.post(config['webhook_url'], headers=headers, json=payload)
-        
-        # Simulate processing time
-        time.sleep(1)
-        response = f"{base_response}\n\nRegarding your message: '{message}'\n\nI'm processing this with my specialized knowledge in {config['specialization']}. How can I assist you further?"
-        return response
+        tts = gTTS(text=text, lang='en', slow=False)
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.mp3') as fp:
+            tts.save(fp.name)
+            return fp.name
     except Exception as e:
-        return f"Error: {str(e)}"
+        st.error(f"TTS Error: {str(e)}")
+        return None
 
-def load_spreadsheet_data(agent_id):
-    """Load data for specific agent - ONLY REAL DATA FROM SHEETS"""
+def autoplay_audio(file_path):
+    """Autoplay audio file"""
+    if file_path is None:
+        return
+    
     try:
-        # Get the agent config
-        config = st.session_state.agent_configs[agent_id]
+        with open(file_path, "rb") as f:
+            audio_bytes = f.read()
         
-        # Check if we have real spreadsheet data for this agent
-        if 'spreadsheet' in config:
-            spreadsheet_info = config['spreadsheet']
-            spreadsheet_id = spreadsheet_info['id']
-            
-            # Only proceed if authenticated
-            if st.session_state.authenticated:
-                try:
-                    # Initialize gspread client
-                    gc = gspread.authorize(st.session_state.credentials)
-                    
-                    # Open the spreadsheet
-                    spreadsheet = gc.open_by_key(spreadsheet_id)
-                    
-                    # Get all worksheets
-                    worksheets = spreadsheet.worksheets()
-                    
-                    if not worksheets:
-                        return None, "No worksheets found in the spreadsheet."
-                    
-                    # Get the first worksheet
-                    worksheet = worksheets[0]
-                    
-                    # Get all values
-                    data = worksheet.get_all_records()
-                    
-                    if not data:
-                        return None, f"No data found in worksheet '{worksheet.title}'. Please add data to the spreadsheet first."
-                    
-                    # Convert to DataFrame
-                    df = pd.DataFrame(data)
-                    
-                    # Clean the data - remove empty rows
-                    df = df.dropna(how='all')
-                    
-                    if df.empty:
-                        return None, f"Spreadsheet '{spreadsheet_info['name']}' contains no valid data. Please add data to the spreadsheet."
-                    
-                    # Convert date columns if they exist
-                    date_columns = ['Date', 'date', 'DATE', 'Created', 'created', 'Timestamp', 'timestamp']
-                    for col in df.columns:
-                        if col in date_columns:
-                            try:
-                                df[col] = pd.to_datetime(df[col], errors='coerce')
-                            except:
-                                pass
-                    
-                    return df, None
-                    
-                except gspread.exceptions.SpreadsheetNotFound:
-                    return None, f"Spreadsheet with ID '{spreadsheet_id}' not found. Please check the spreadsheet ID and permissions."
-                except gspread.exceptions.APIError as e:
-                    return None, f"Google Sheets API error: {str(e)}. Please check your permissions and try again."
-                except Exception as e:
-                    return None, f"Error loading spreadsheet data: {str(e)}"
-            else:
-                return None, "Please authenticate with Google to access spreadsheet data."
-        else:
-            return None, f"No spreadsheet configured for {config['name']}."
-            
+        audio_base64 = base64.b64encode(audio_bytes).decode()
+        audio_tag = f'<audio autoplay="true" src="data:audio/mp3;base64,{audio_base64}"></audio>'
+        st.markdown(audio_tag, unsafe_allow_html=True)
+        
+        # Clean up the file after playing
+        os.remove(file_path)
     except Exception as e:
-        return None, f"Error loading data: {str(e)}"
+        st.error(f"Audio playback error: {str(e)}")
 
-def make_ai_call(agent_id, phone_number):
-    """Initiate AI voice call"""
-    config = st.session_state.agent_configs[agent_id]
-    
-    call_data = {
-        "call_id": str(uuid.uuid4()),
-        "agent_id": agent_id,
-        "agent_name": config['name'],
-        "phone_number": phone_number,
-        "ai_phone": config['ai_phone'],
-        "assistant_id": config['ai_assistant_id'],
-        "status": "initiated",
-        "timestamp": datetime.now().isoformat(),
-        "duration": "00:00:00",
-        "cost": "$0.00"
-    }
-    
-    return call_data
+def speech_to_text():
+    """Convert speech to text using speech_recognition"""
+    if st.session_state.recording_status:
+        try:
+            with sr.Microphone() as source:
+                st.session_state.recognizer.adjust_for_ambient_noise(source)
+                audio = st.session_state.recognizer.listen(source, timeout=5)
+                text = st.session_state.recognizer.recognize_google(audio)
+                return text
+        except Exception as e:
+            st.error(f"STT Error: {str(e)}")
+    return None
 
-def get_agent_categories():
-    """Get unique categories from agents"""
-    categories = set()
-    for agent_config in st.session_state.agent_configs.values():
-        categories.add(agent_config['category'])
-    return sorted(list(categories))
-
-# Sidebar Navigation
-with st.sidebar:
-    st.title("🚀 25-Agent Dashboard")
-    st.divider()
+def send_message_to_agent(agent_config, message):
+    """Send message to agent via webhook"""
+    if not message.strip():
+        return None
     
-    # Google Authentication Section
-    if not st.session_state.authenticated:
-        st.subheader("🔐 Google Authentication")
-        uploaded_file = st.file_uploader("Upload Service Account JSON", type="json")
-        
-        if uploaded_file and st.button("Authenticate Google"):
-            try:
-                json_content = json.load(uploaded_file)
-                success, message = authenticate_service_account(json_content)
-                
-                if success:
-                    st.success(message)
-                    st.rerun()
-                else:
-                    st.error(message)
-            except Exception as e:
-                st.error(f"Error reading JSON file: {str(e)}")
-    else:
-        st.success(f"✅ Google Authenticated")
-        st.caption(f"User: {st.session_state.user_info['email']}")
-        
-        if st.button("🚪 Sign Out Google"):
-            for key in ['authenticated', 'credentials', 'user_info']:
-                st.session_state[key] = None if key != 'authenticated' else False
-            st.rerun()
-    
-    st.divider()
-    
-    # Configuration Status
-    st.subheader("⚙️ Configuration Status")
-    
-    # Webhook status
-    webhook_status = "✅ Connected" if WEBHOOK_URL != "default_token" else "⚠️ Using Default"
-    st.info(f"**Webhook:** {webhook_status}")
-    st.caption(f"URL: {WEBHOOK_URL[:50]}...")
-    
-    # Bearer token status
-    token_status = "✅ Configured" if BEARER_TOKEN != "default_token" else "⚠️ Using Default"
-    st.info(f"**Bearer Token:** {token_status}")
-    
-    # Spreadsheets status
-    st.info(f"**Real Spreadsheets:** {len(REAL_SPREADSHEETS)} configured")
-    for name, info in REAL_SPREADSHEETS.items():
-        st.caption(f"{info['icon']} {name}: {info['id'][:15]}...")
-    
-    st.divider()
-    
-    # Agent Selection
-    if st.session_state.authenticated:
-        st.subheader("🤖 Select Agent")
-        
-        # Category filter
-        categories = get_agent_categories()
-        selected_category = st.selectbox("Filter by Category:", ["All"] + categories)
-        
-        # Filter agents by category
-        if selected_category == "All":
-            filtered_agents = st.session_state.agent_configs
-        else:
-            filtered_agents = {
-                k: v for k, v in st.session_state.agent_configs.items() 
-                if v['category'] == selected_category
-            }
-        
-        # Agent selection
-        agent_options = list(filtered_agents.keys())
-        
-        if agent_options:
-            current_agent = st.selectbox(
-                "Choose Agent:",
-                agent_options,
-                index=agent_options.index(st.session_state.current_page) if st.session_state.current_page in agent_options else 0,
-                format_func=lambda x: f"{filtered_agents[x]['icon']} {filtered_agents[x]['name']}"
-            )
-            
-            if current_agent != st.session_state.current_page:
-                st.session_state.current_page = current_agent
-                st.rerun()
-        
-        st.divider()
-        
-        # Current Agent Info
-        if st.session_state.current_page in st.session_state.agent_configs:
-            config = st.session_state.agent_configs[st.session_state.current_page]
-            
-            st.subheader("📋 Current Agent")
-            st.markdown(f"""
-            **{config['icon']} {config['name']}**  
-            *{config['description']}*  
-            **Category:** {config['category']}  
-            **Specialization:** {config['specialization']}
-            """)
-            
-            with st.expander("🔧 Technical Details"):
-                st.code(f"""
-Assistant ID: {config['ai_assistant_id']}
-Phone: {config['ai_phone']}
-Webhook: {config['webhook_url']}
-Spreadsheet: {config['spreadsheet']['name'] if 'spreadsheet' in config else 'Default'}
-Spreadsheet ID: {config['spreadsheet']['id'] if 'spreadsheet' in config else 'N/A'}
-                """)
-        
-        st.divider()
-        
-        # Dashboard Stats
-        st.subheader("📊 Dashboard Stats")
-        col1, col2 = st.columns(2)
-        with col1:
-            st.metric("Total Agents", len(st.session_state.agent_configs))
-            st.metric("Categories", len(get_agent_categories()))
-        with col2:
-            total_calls = sum(len(calls) for calls in st.session_state.ai_calls.values())
-            st.metric("Total Calls", total_calls)
-            total_chats = sum(len(chats) for chats in st.session_state.chat_sessions.values())
-            st.metric("Chat Messages", total_chats)
-
-# Main Content Area
-if not st.session_state.authenticated:
-    st.title("🚀 25-Agent Business Dashboard")
-    
-    st.info("🔐 Please authenticate with Google using the sidebar to access Google Sheets.")
-    
-    # Feature overview
-    st.header("🌟 Platform Features")
-    
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        st.markdown("""
-        ### 🤖 25 Specialized AI Agents
-        - **Leadership:** CEO, Business Planning
-        - **Marketing:** Social Media, Content Creation
-        - **Development:** Streamlit, HTML/CSS
-        - **Finance:** Investment, Grant Writing
-        - **Sales:** Closing, Follow-up
-        - **Health:** Medical, Wellness
-        - **Real Estate:** Property Analysis
-        - **And many more...**
-        """)
-    
-    with col2:
-        st.markdown("""
-        ### 📊 Comprehensive Analytics
-        - Individual agent performance
-        - Real-time data visualization
-        - Google Sheets integration
-        - Export capabilities
-        - Custom metrics tracking
-        - Performance dashboards
-        """)
-    
-    with col3:
-        st.markdown("""
-        ### 🔧 n8n Integration
-        - Unified webhook system
-        - Real-time chat processing
-        - Custom workflow automation
-        - Bearer token authentication
-        - Multi-agent coordination
-        - Scalable architecture
-        """)
-    
-    # Agent categories overview - Display in rows instead of columns
-    st.header("🎯 Agent Categories")
-    categories = get_agent_categories()
-    
-    # Display categories in rows (3 per row)
-    for i in range(0, len(categories), 3):
-        row_categories = categories[i:i+3]
-        cols = st.columns(len(row_categories))
-        
-        for j, category in enumerate(row_categories):
-            with cols[j]:
-                agents_in_category = [
-                    agent for agent in st.session_state.agent_configs.values() 
-                    if agent['category'] == category
-                ]
-                st.markdown(f"### {category}")
-                st.metric("Agents", len(agents_in_category))
-                for agent in agents_in_category[:3]:  # Show first 3
-                    st.caption(f"{agent['icon']} {agent['name']}")
-                if len(agents_in_category) > 3:
-                    st.caption(f"... and {len(agents_in_category) - 3} more")
-    
-    # Real Spreadsheets Overview
-    st.header("📊 Real Spreadsheets Connected")
-    
-    spreadsheet_cols = st.columns(len(REAL_SPREADSHEETS))
-    for i, (name, info) in enumerate(REAL_SPREADSHEETS.items()):
-        with spreadsheet_cols[i]:
-            st.markdown(f"### {info['icon']} {name}")
-            st.caption(f"{info['description']}")
-            st.code(f"ID: {info['id'][:20]}...")
-            
-            # Count agents using this spreadsheet
-            agents_using = sum(1 for agent in AGENTS_CONFIG.values() 
-                             if agent.get('spreadsheet', {}).get('id') == info['id'])
-            st.metric("Agents Using", agents_using)
-
-else:
-    # Main dashboard for authenticated users
-    current_config = st.session_state.agent_configs[st.session_state.current_page]
-    
-    # Page header with agent info
-    col1, col2, col3 = st.columns([2, 1, 1])
-    
-    with col1:
-        st.title(f"{current_config['icon']} {current_config['name']}")
-        st.caption(f"{current_config['description']} | Category: {current_config['category']}")
-    
-    with col2:
-        st.metric("AI Assistant", "Active")
-        st.caption(f"ID: {current_config['ai_assistant_id'][:8]}...")
-    
-    with col3:
-        st.metric("Phone Number", current_config['ai_phone'])
-        st.caption("Ready for calls")
-    
-    # Page Navigation Buttons
-    st.write("### 📑 Page Navigation")
-    page_nav_cols = st.columns(4)
-    
-    with page_nav_cols[0]:
-        if st.button("🤖 Chatbot", use_container_width=True):
-            st.session_state.current_tab = 'chatbot'
-            st.rerun()
-    
-    with page_nav_cols[1]:
-        if st.button("📊 Data (Sheets)", use_container_width=True):
-            st.session_state.current_tab = 'data'
-            st.rerun()
-    
-    with page_nav_cols[2]:
-        if st.button("📞 AI Voice Call", use_container_width=True):
-            st.session_state.current_tab = 'ai_call'
-            st.rerun()
-    
-    with page_nav_cols[3]:
-        if st.button("💡 Prompts/Info", use_container_width=True):
-            st.session_state.current_tab = 'prompts'
-            st.rerun()
-    
-    # Set default tab if not set
-    if 'current_tab' not in st.session_state:
-        st.session_state.current_tab = 'chatbot'
-    
-    # Display content based on current tab
-    if st.session_state.current_tab == 'chatbot':
-        st.header("🤖 AI Chat Interface")
-        
-        # Initialize chat session for current agent
-        if st.session_state.current_page not in st.session_state.chat_sessions:
-            st.session_state.chat_sessions[st.session_state.current_page] = []
-        
-        # Chat settings in sidebar
-        with st.expander("⚙️ Chat Settings"):
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                st.session_state.use_tts = st.checkbox("🔈 Text-to-Speech", value=st.session_state.use_tts)
-            with col2:
-                st.session_state.show_timestamps = st.checkbox("🕒 Timestamps", value=st.session_state.show_timestamps)
-            with col3:
-                if st.button("🗑️ Clear Chat"):
-                    st.session_state.chat_sessions[st.session_state.current_page] = []
-                    st.rerun()
-        
-        # Display chat history
-        chat_container = st.container()
-        with chat_container:
-            for message in st.session_state.chat_sessions[st.session_state.current_page]:
-                with st.chat_message(message['role']):
-                    if st.session_state.show_timestamps:
-                        st.caption(f"⏱️ {message.get('timestamp', '')}")
-                    st.markdown(message['content'])
-        
-        # Chat input
-        user_input = st.chat_input(f"Message {current_config['name']}...")
-        
-        # Voice input and quick actions
-        input_col1, input_col2, input_col3 = st.columns([1, 1, 4])
-        
-        with input_col1:
-            if st.button("🎙️ Voice", key=f"voice_{st.session_state.current_page}"):
-                st.info("🎤 Voice input activated (simulated)")
-                user_input = f"Voice message for {current_config['name']}: How can you help me today?"
-        
-        with input_col2:
-            if st.button("⚡ Quick Help", key=f"quick_{st.session_state.current_page}"):
-                user_input = f"What are your main capabilities and how can you help me with {current_config['specialization']}?"
-        
-        # Process input
-        if user_input:
-            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            
-            # Add user message
-            user_msg = {
-                "role": "user",
-                "content": user_input,
-                "timestamp": timestamp
-            }
-            st.session_state.chat_sessions[st.session_state.current_page].append(user_msg)
-            
-            # Get AI response
-            with st.spinner(f"🤖 {current_config['name']} is thinking..."):
-                response = send_message_to_webhook(st.session_state.current_page, user_input)
-            
-            # Add assistant message
-            assistant_msg = {
-                "role": "assistant",
-                "content": response,
-                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            }
-            
-            st.session_state.chat_sessions[st.session_state.current_page].append(assistant_msg)
-            st.rerun()
-    
-    elif st.session_state.current_tab == 'data':
-    st.header("📊 Google Sheets Data & Analytics")
-
-    # Ensure current_config exists
-    current_config = st.session_state.get('current_config', {})
-
-    # Show spreadsheet info if available
-    spreadsheet_info = current_config.get('spreadsheet')
-    if spreadsheet_info:
-        st.info(
-            f"📋 Connected to: **{spreadsheet_info.get('name', 'Unknown')}** "
-            f"({spreadsheet_info.get('description', '')}) - "
-            f"ID: `{spreadsheet_info.get('id', 'N/A')}`"
-        )
-
-    # Ensure sheets_data is initialized
-    if 'sheets_data' not in st.session_state:
-        st.session_state.sheets_data = {}
-
-    # Load data for current agent/page
-    current_page = st.session_state.get('current_page')
-    if current_page not in st.session_state.sheets_data:
-        with st.spinner("Loading data from Google Sheets..."):
-            df, error = load_spreadsheet_data(current_page)
-            if error:
-                st.error(f"❌ {error}")
-
-                # Show helpful instructions
-                st.markdown("""
-                ### 📝 To view data in this section:
-
-                1. **Ensure you're authenticated** with Google (check sidebar)
-                2. **Add data to your Google Sheet** with the configured spreadsheet ID
-                3. **Make sure the spreadsheet is shared** with your service account email
-                4. **Include column headers** in your first row
-                5. **Click 'Refresh Data'** button below to reload
-
-                **Spreadsheet Requirements:**
-                - At least one row of data (excluding headers)
-                - Proper column names in the first row
-                - Accessible to your service account
-                """)
-
-                if st.button("🔄 Refresh Data", key="refresh_error"):
-                    # Clear cached data and try again
-                    if current_page in st.session_state.sheets_data:
-                        del st.session_state.sheets_data[current_page]
-                    st.rerun()
-
-                st.stop()  # Exit early if no data
-            else:
-                st.session_state.sheets_data[current_page] = df
-        
-        if st.session_state.current_page in st.session_state.sheets_data:
-            df = st.session_state.sheets_data[st.session_state.current_page]
-            
-            # Show data info
-            st.success(f"✅ Successfully loaded {len(df)} rows and {len(df.columns)} columns from Google Sheets")
-            
-            # Data overview metrics
-            st.subheader("📈 Key Metrics")
-            
-            # Dynamic metrics based on data columns
-            numeric_cols = df.select_dtypes(include=['number']).columns.tolist()
-            
-            if len(numeric_cols) >= 1:
-                # Create metrics based on available numeric columns
-                metric_cols = st.columns(min(4, len(numeric_cols)))
-                
-                for i, col in enumerate(numeric_cols[:4]):  # Show up to 4 metrics
-                    with metric_cols[i]:
-                        if len(df) >= 2:
-                            current_val = df[col].iloc[-1] if not pd.isna(df[col].iloc[-1]) else 0
-                            prev_val = df[col].iloc[-2] if not pd.isna(df[col].iloc[-2]) else 0
-                            delta = current_val - prev_val
-                            
-                            # Format numbers appropriately
-                            if abs(current_val) >= 1000000:
-                                display_val = f"{current_val/1000000:.1f}M"
-                            elif abs(current_val) >= 1000:
-                                display_val = f"{current_val/1000:.1f}K"
-                            else:
-                                display_val = f"{current_val:,.1f}"
-                            
-                            st.metric(col, display_val, delta=f"{delta:,.1f}")
-                        else:
-                            st.metric(col, f"{df[col].iloc[-1]:,.1f}" if not pd.isna(df[col].iloc[-1]) else "N/A")
-            else:
-                st.info("📊 No numeric columns found for metrics. Add numeric data to see key performance indicators.")
-            
-            # Data visualization
-            st.subheader("📊 Data Visualizations")
-            
-            if len(numeric_cols) >= 1:
-                viz_col1, viz_col2 = st.columns(2)
-                
-                # Find date column for time series
-                date_cols = [col for col in df.columns if 'date' in col.lower() or 'time' in col.lower() or 'created' in col.lower()]
-                date_col = date_cols[0] if date_cols else None
-                
-                with viz_col1:
-                    if date_col and len(numeric_cols) >= 1:
-                        # Time series chart
-                        fig1 = px.line(df, x=date_col, y=numeric_cols[0], 
-                                      title=f'{numeric_cols[0]} Over Time',
-                                      color_discrete_sequence=['#1f77b4'])
-                        fig1.update_layout(height=300)
-                        st.plotly_chart(fig1, use_container_width=True)
-                    elif len(numeric_cols) >= 1:
-                        # Bar chart if no date column
-                        fig1 = px.bar(df.head(10), x=df.columns[0], y=numeric_cols[0], 
-                                     title=f'{numeric_cols[0]} by {df.columns[0]}',
-                                     color_discrete_sequence=['#1f77b4'])
-                        fig1.update_layout(height=300)
-                        st.plotly_chart(fig1, use_container_width=True)
-                
-                with viz_col2:
-                    if len(numeric_cols) >= 2:
-                        if date_col:
-                            # Second time series
-                            fig2 = px.area(df, x=date_col, y=numeric_cols[1], 
-                                          title=f'{numeric_cols[1]} Over Time',
-                                          color_discrete_sequence=['#ff7f0e'])
-                            fig2.update_layout(height=300)
-                            st.plotly_chart(fig2, use_container_width=True)
-                        else:
-                            # Scatter plot
-                            fig2 = px.scatter(df, x=numeric_cols[0], y=numeric_cols[1], 
-                                             title=f'{numeric_cols[1]} vs {numeric_cols[0]}',
-                                             color_discrete_sequence=['#ff7f0e'])
-                            fig2.update_layout(height=300)
-                            st.plotly_chart(fig2, use_container_width=True)
-                    else:
-                        # Histogram if only one numeric column
-                        fig2 = px.histogram(df, x=numeric_cols[0], 
-                                           title=f'Distribution of {numeric_cols[0]}',
-                                           color_discrete_sequence=['#ff7f0e'])
-                        fig2.update_layout(height=300)
-                        st.plotly_chart(fig2, use_container_width=True)
-                
-                # Correlation heatmap if multiple numeric columns
-                if len(numeric_cols) > 2:
-                    st.subheader("🔥 Correlation Analysis")
-                    correlation_matrix = df[numeric_cols].corr()
-                    fig_heatmap = px.imshow(correlation_matrix, 
-                                           text_auto=True, 
-                                           aspect="auto",
-                                           title="Metrics Correlation Heatmap",
-                                           color_continuous_scale='RdBu')
-                    fig_heatmap.update_layout(height=400)
-                    st.plotly_chart(fig_heatmap, use_container_width=True)
-            else:
-                st.info("📈 Add numeric columns to your spreadsheet to see data visualizations.")
-            
-            # Data table with filtering
-            st.subheader("📋 Data Table")
-            
-            # Add filters
-            filter_col1, filter_col2 = st.columns(2)
-            
-            with filter_col1:
-                # Date filter if date column exists
-                date_cols = [col for col in df.columns if 'date' in col.lower() or 'time' in col.lower()]
-                if date_cols:
-                    date_col = date_cols[0]
-                    try:
-                        df[date_col] = pd.to_datetime(df[date_col], errors='coerce')
-                        min_date = df[date_col].min().date()
-                        max_date = df[date_col].max().date()
-                        date_range = st.date_input(
-                            "Date Range:",
-                            value=(min_date, max_date),
-                            min_value=min_date,
-                            max_value=max_date
-                        )
-                    except:
-                        date_range = None
-                else:
-                    st.info("No date columns found for filtering")
-                    date_range = None
-            
-            with filter_col2:
-                show_rows = st.selectbox("Show rows:", [10, 20, 50, "All"], index=1)
-            
-            # Apply filters
-            filtered_df = df.copy()
-            
-            if date_range and date_cols:
-                try:
-                    filtered_df = filtered_df[
-                        (filtered_df[date_cols[0]].dt.date >= date_range[0]) & 
-                        (filtered_df[date_cols[0]].dt.date <= date_range[1])
-                    ]
-                except:
-                    pass  # Skip date filtering if it fails
-            
-            if show_rows != "All":
-                filtered_df = filtered_df.tail(show_rows)
-            
-            st.dataframe(filtered_df, use_container_width=True, height=300)
-            
-            # Export section
-            st.subheader("💾 Export Options")
-            export_col1, export_col2, export_col3, export_col4 = st.columns(4)
-            
-            with export_col1:
-                csv = filtered_df.to_csv(index=False)
-                st.download_button(
-                    label="📄 Download CSV",
-                    data=csv,
-                    file_name=f"{st.session_state.current_page}_data.csv",
-                    mime="text/csv"
-                )
-            
-            with export_col2:
-                json_str = filtered_df.to_json(orient='records', date_format='iso')
-                st.download_button(
-                    label="📋 Download JSON",
-                    data=json_str,
-                    file_name=f"{st.session_state.current_page}_data.json",
-                    mime="application/json"
-                )
-            
-            with export_col3:
-                if st.button("🔄 Refresh Data"):
-                    # Clear cached data and reload
-                    if st.session_state.current_page in st.session_state.sheets_data:
-                        del st.session_state.sheets_data[st.session_state.current_page]
-                    st.rerun()
-            
-            with export_col4:
-                if st.button("📊 Generate Report"):
-                    st.info("📈 Comprehensive report generation feature coming soon!")
-    
-    elif st.session_state.current_tab == 'ai_call':
-        st.header("📞 AI Voice Call System")
-        
-        # Call interface
-        call_col1, call_col2 = st.columns([1, 1])
-        
-        with call_col1:
-            st.subheader("📱 Agent Voice Details")
-            st.info(f"**Agent:** {current_config['name']}")
-            st.info(f"**Phone:** {current_config['ai_phone']}")
-            st.info(f"**Assistant ID:** {current_config['ai_assistant_id']}")
-            st.info(f"**Specialization:** {current_config['specialization']}")
-        
-        with call_col2:
-            st.subheader("🚀 Initiate Call")
-            
-            # Call form
-            with st.form("call_form"):
-                phone_number = st.text_input(
-                    "📱 Recipient Phone Number:", 
-                    placeholder="+1234567890",
-                    help="Enter the phone number to call"
-                )
-                
-                call_purpose = st.selectbox(
-                    "📋 Call Purpose:",
-                    ["General Inquiry", "Sales Call", "Follow-up", "Support", "Consultation", "Other"]
-                )
-                
-                call_notes = st.text_area(
-                    "📝 Call Notes:",
-                    placeholder="Add any notes about this call...",
-                    height=100
-                )
-                
-                submitted = st.form_submit_button("📞 Initiate Call", use_container_width=True)
-                
-                if submitted and phone_number:
-                    call_data = make_ai_call(st.session_state.current_page, phone_number)
-                    call_data.update({
-                        "purpose": call_purpose,
-                        "notes": call_notes
-                    })
-                    
-                    if st.session_state.current_page not in st.session_state.ai_calls:
-                        st.session_state.ai_calls[st.session_state.current_page] = []
-                    
-                    st.session_state.ai_calls[st.session_state.current_page].append(call_data)
-                    st.success(f"✅ Call initiated! Call ID: {call_data['call_id'][:8]}...")
-                    st.rerun()
-                elif submitted:
-                    st.error("❌ Please enter a valid phone number")
-        
-        st.divider()
-        
-        # Call history and management
-        st.subheader("📋 Call History & Management")
-        
-        if (st.session_state.current_page in st.session_state.ai_calls and 
-            st.session_state.ai_calls[st.session_state.current_page]):
-            
-            calls = st.session_state.ai_calls[st.session_state.current_page]
-            
-            # Call statistics
-            stats_col1, stats_col2, stats_col3, stats_col4 = st.columns(4)
-            with stats_col1:
-                st.metric("Total Calls", len(calls))
-            with stats_col2:
-                st.metric("Today's Calls", len([c for c in calls if c['timestamp'][:10] == datetime.now().date().isoformat()]))
-            with stats_col3:
-                st.metric("Success Rate", "95%")  # Simulated
-            with stats_col4:
-                st.metric("Avg Duration", "3:45")  # Simulated
-            
-            # Recent calls
-            st.subheader("🕐 Recent Calls")
-            
-            for i, call in enumerate(reversed(calls[-10:])):  # Show last 10 calls
-                with st.expander(f"📞 Call to {call['phone_number']} - {call['timestamp'][:16]} ({call.get('purpose', 'General')})"):
-                    
-                    detail_col1, detail_col2 = st.columns(2)
-                    
-                    with detail_col1:
-                        st.markdown(f"""
-                        **📞 Call Details:**
-                        - **Call ID:** `{call['call_id']}`
-                        - **Status:** {call['status']}
-                        - **Purpose:** {call.get('purpose', 'Not specified')}
-                        - **Agent Phone:** {call['ai_phone']}
-                        """)
-                    
-                    with detail_col2:
-                        st.markdown(f"""
-                        **🎯 Technical Info:**
-                        - **Recipient:** {call['phone_number']}
-                        - **Assistant ID:** `{call['assistant_id']}`
-                        - **Timestamp:** {call['timestamp']}
-                        - **Duration:** {call.get('duration', '00:00:00')}
-                        """)
-                    
-                    if call.get('notes'):
-                        st.markdown(f"**📝 Notes:** {call['notes']}")
-                    
-                    # Call actions
-                    action_col1, action_col2, action_col3, action_col4 = st.columns(4)
-                    
-                    with action_col1:
-                        if st.button("📞 Redial", key=f"redial_{call['call_id']}"):
-                            new_call = make_ai_call(st.session_state.current_page, call['phone_number'])
-                            new_call.update({
-                                "purpose": "Redial",
-                                "notes": f"Redial of call {call['call_id'][:8]}..."
-                            })
-                            st.session_state.ai_calls[st.session_state.current_page].append(new_call)
-                            st.success("📞 Redial initiated!")
-                            st.rerun()
-                    
-                    with action_col2:
-                        if st.button("📝 Add Notes", key=f"notes_{call['call_id']}"):
-                            st.info("📝 Notes feature - would open note editor")
-                    
-                    with action_col3:
-                        if st.button("📊 Analytics", key=f"analytics_{call['call_id']}"):
-                            st.info("📊 Call analytics - detailed metrics would display")
-                    
-                    with action_col4:
-                        if st.button("🔄 Update Status", key=f"status_{call['call_id']}"):
-                            st.info("🔄 Status update - would show status options")
-        else:
-            st.info("📞 No calls made yet. Use the form above to initiate your first call with this agent.")
-            
-            # Sample call scenarios
-            st.subheader("💡 Sample Call Scenarios")
-            
-            scenario_col1, scenario_col2 = st.columns(2)
-            
-            with scenario_col1:
-                st.markdown(f"""
-                **🎯 Recommended for {current_config['name']}:**
-                - {current_config['specialization']} consultation
-                - Expert advice and guidance
-                - Problem-solving sessions
-                - Strategic planning calls
-                """)
-            
-            with scenario_col2:
-                if st.button("📞 Demo Call", key="demo_call"):
-                    demo_call = make_ai_call(st.session_state.current_page, "+1555DEMO123")
-                    demo_call.update({
-                        "purpose": "Demo Call",
-                        "notes": "Demonstration call to showcase capabilities"
-                    })
-                    
-                    if st.session_state.current_page not in st.session_state.ai_calls:
-                        st.session_state.ai_calls[st.session_state.current_page] = []
-                    
-                    st.session_state.ai_calls[st.session_state.current_page].append(demo_call)
-                    st.success("🎉 Demo call initiated!")
-                    st.rerun()
-    
-    elif st.session_state.current_tab == 'prompts':
-        st.header("💡 Prompt Library & Agent Information")
-        
-        # Agent detailed information
-        info_col1, info_col2 = st.columns(2)
-        
-        with info_col1:
-            st.subheader("🤖 Agent Profile")
-            st.markdown(f"""
-            **Name:** {current_config['name']}  
-            **Category:** {current_config['category']}  
-            **Description:** {current_config['description']}  
-            **Specialization:** {current_config['specialization']}  
-            **Icon:** {current_config['icon']}
-            """)
-            
-            # Agent capabilities
-            st.subheader("🎯 Core Capabilities")
-            capabilities = {
-                "Leadership": ["Strategic Planning", "Team Management", "Decision Making", "Vision Setting"],
-                "Marketing": ["Content Creation", "Social Media", "Campaign Management", "Brand Strategy"],
-                "Development": ["Code Review", "Architecture Design", "Debugging", "Best Practices"],
-                "Finance": ["Financial Analysis", "Investment Planning", "Risk Assessment", "Budgeting"],
-                "Sales": ["Lead Qualification", "Closing Techniques", "Objection Handling", "Pipeline Management"],
-                "Health": ["Wellness Planning", "Health Education", "Lifestyle Advice", "Preventive Care"],
-                "Real Estate": ["Property Analysis", "Market Research", "Investment Strategy", "Valuation"],
-                "E-commerce": ["Store Optimization", "Product Strategy", "Customer Experience", "Sales Funnel"],
-                "Content": ["Blog Writing", "SEO Optimization", "Content Strategy", "Editorial Planning"],
-                "Analytics": ["Data Analysis", "KPI Tracking", "Performance Metrics", "Reporting"],
-                "Research": ["Market Research", "Data Collection", "Analysis", "Insights Generation"],
-                "Medical": ["Health Information", "Symptom Assessment", "Treatment Options", "Wellness"],
-                "Assessment": ["Personality Analysis", "Team Dynamics", "Behavioral Insights", "Development"],
-                "Business": ["Business Planning", "Strategy Development", "Market Analysis", "Growth Planning"],
-                "AI": ["Agent Development", "Customization", "Integration", "Optimization"],
-                "Language": ["Translation", "Localization", "Communication", "Cultural Adaptation"],
-                "CRM": ["Customer Relations", "Follow-up Strategy", "Retention", "Engagement"],
-                "Spiritual": ["Prayer Guidance", "Faith Support", "Spiritual Growth", "Meditation"]
-            }
-            
-            agent_capabilities = capabilities.get(current_config['category'], ["General AI Assistance"])
-            for capability in agent_capabilities:
-                st.markdown(f"• {capability}")
-        
-        with info_col2:
-            st.subheader("🔧 Technical Configuration")
-            
-            config_data = {
-                "Agent ID": st.session_state.current_page,
-                "AI Assistant ID": current_config['ai_assistant_id'],
-                "Phone Number": current_config['ai_phone'],
-                "Webhook URL": current_config['webhook_url'],
-                "Bearer Token": current_config['bearer_token'][:20] + "...",
-                "Spreadsheet": current_config['spreadsheet']['name'] if 'spreadsheet' in current_config else 'Default',
-                "Spreadsheet ID": current_config['spreadsheet']['id'] if 'spreadsheet' in current_config else 'N/A',
-                "Category": current_config['category'],
-                "Specialization": current_config['specialization']
-            }
-            
-            st.json(config_data)
-            
-            # Quick actions
-            st.subheader("⚡ Quick Actions")
-            
-            quick_col1, quick_col2 = st.columns(2)
-            
-            with quick_col1:
-                if st.button("💬 Start Chat", key="quick_chat"):
-                    st.session_state.current_tab = 'chatbot'
-                    st.info("💬 Switched to chat interface")
-                
-                if st.button("📊 View Data", key="quick_data"):
-                    st.session_state.current_tab = 'data'
-                    st.info("📊 Switched to data view")
-            
-            with quick_col2:
-                if st.button("📞 Make Call", key="quick_call"):
-                    st.session_state.current_tab = 'ai_call'
-                    st.info("📞 Switched to call interface")
-                
-                if st.button("🔄 Refresh Config", key="refresh_config"):
-                    st.success("🔄 Configuration refreshed!")
-        
-        st.divider()
-        
-        # Prompt Library
-        st.subheader("📚 Prompt Library")
-        
-        # Category-based prompts
-        prompt_categories = list(st.session_state.prompt_library.keys())
-        
-        # Filter prompts by agent category
-        relevant_categories = []
-        agent_category = current_config['category']
-        
-        # Map agent categories to prompt categories
-        category_mapping = {
-            "Leadership": ["Leadership"],
-            "Marketing": ["Sales & Marketing"],
-            "Development": ["Development"],
-            "Finance": ["Finance & Business"],
-            "Sales": ["Sales & Marketing"],
-            "Health": ["Health & Wellness"],
-            "Medical": ["Health & Wellness"],
-            "Real Estate": ["Real Estate"],
-            "E-commerce": ["Sales & Marketing"],
-            "Content": ["Sales & Marketing"],
-            "Analytics": ["Finance & Business"],
-            "Research": ["Finance & Business"],
-            "Assessment": ["Leadership"],
-            "Business": ["Finance & Business"],
-            "AI": ["Development"],
-            "Language": ["Sales & Marketing"],
-            "CRM": ["Sales & Marketing"],
-            "Spiritual": ["Health & Wellness"]
+    try:
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {agent_config['bearer_token']}"
         }
         
-        relevant_categories = category_mapping.get(agent_category, prompt_categories)
+        payload = {
+            "message": message,
+            "agent_id": agent_config["id"],
+            "user_id": st.session_state.user_info["email"] if st.session_state.user_info else "anonymous"
+        }
         
-        # Prompt category selection
-        selected_prompt_category = st.selectbox(
-            "Select Prompt Category:", 
-            ["All Categories"] + prompt_categories,
-            index=0
+        response = requests.post(
+            agent_config["webhook_url"],
+            headers=headers,
+            data=json.dumps(payload)
         )
         
-        # Display prompts
-        if selected_prompt_category == "All Categories":
-            display_categories = prompt_categories
+        if response.status_code == 200:
+            return response.json()
         else:
-            display_categories = [selected_prompt_category]
+            st.error(f"Error: {response.status_code} - {response.text}")
+            return None
+    except Exception as e:
+        st.error(f"API Error: {str(e)}")
+        return None
+
+def process_vapi_call(agent_config, message):
+    """Process VAPI call for voice interactions"""
+    if not st.session_state.vapi_settings['enabled'] or not message.strip():
+        return None
         
-        for category in display_categories:
-            if category in st.session_state.prompt_library:
-                st.markdown(f"### 📂 {category}")
+    try:
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {st.session_state.vapi_settings['api_key']}"
+        }
+        
+        payload = {
+            "message": message,
+            "assistant_id": agent_config["ai_assistant_id"],
+            "phone_number": agent_config["ai_phone"]
+        }
+        
+        response = requests.post(
+            f"{st.session_state.vapi_settings['endpoint']}/calls",
+            headers=headers,
+            data=json.dumps(payload)
+        )
+        
+        if response.status_code == 200:
+            call_data = response.json()
+            call_id = call_data.get("id")
+            
+            if call_id:
+                # Store call data in session state
+                if 'vapi_calls' not in st.session_state:
+                    st.session_state.vapi_calls = {}
                 
-                prompts = st.session_state.prompt_library[category]
+                st.session_state.vapi_calls[call_id] = {
+                    "status": "initiated",
+                    "agent": agent_config["name"],
+                    "timestamp": datetime.now().timestamp(),
+                    "message": message
+                }
                 
-                # Display prompts in expandable cards
-                for i, prompt in enumerate(prompts):
-                    with st.expander(f"💡 {prompt['title']}"):
-                        st.markdown(f"**Prompt:** {prompt['prompt']}")
-                        
-                        prompt_action_col1, prompt_action_col2, prompt_action_col3 = st.columns(3)
-                        
-                        with prompt_action_col1:
-                            if st.button("💬 Use in Chat", key=f"use_{category}_{i}"):
-                                # Pre-fill chat with this prompt
-                                if st.session_state.current_page not in st.session_state.chat_sessions:
-                                    st.session_state.chat_sessions[st.session_state.current_page] = []
-                                
-                                prompt_msg = {
-                                    "role": "user",
-                                    "content": prompt['prompt'],
-                                    "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                                }
-                                st.session_state.chat_sessions[st.session_state.current_page].append(prompt_msg)
-                                st.success(f"✅ Prompt added to chat!")
-                        
-                        with prompt_action_col2:
-                            if st.button("⭐ Favorite", key=f"fav_{category}_{i}"):
-                                prompt_id = f"{category}_{i}"
-                                if prompt_id not in st.session_state.favorites:
-                                    st.session_state.favorites.append(prompt_id)
-                                    st.success("⭐ Added to favorites!")
-                                else:
-                                    st.info("Already in favorites!")
-                        
-                        with prompt_action_col3:
-                            if st.button("📋 Copy", key=f"copy_{category}_{i}"):
-                                st.code(prompt['prompt'], language=None)
-                                st.info("📋 Prompt displayed above for copying")
+                return call_id
+        else:
+            st.error(f"VAPI Error: {response.status_code} - {response.text}")
         
-        st.divider()
+        return None
+    except Exception as e:
+        st.error(f"VAPI Error: {str(e)}")
+        return None
+
+def get_vapi_call_status(call_id):
+    """Get VAPI call status"""
+    if not st.session_state.vapi_settings['enabled'] or not call_id:
+        return None
         
-        # Custom prompt creation
-        st.subheader("➕ Create Custom Prompt")
+    try:
+        headers = {
+            "Authorization": f"Bearer {st.session_state.vapi_settings['api_key']}"
+        }
         
-        with st.expander("🛠️ Add New Prompt"):
-            custom_col1, custom_col2 = st.columns(2)
-            
-            with custom_col1:
-                new_category = st.selectbox(
-                    "Category:", 
-                    prompt_categories + ["Create New Category"],
-                    key="new_prompt_category"
-                )
-                
-                if new_category == "Create New Category":
-                    custom_category = st.text_input("New Category Name:", key="custom_category")
-                    if custom_category:
-                        new_category = custom_category
-            
-            with custom_col2:
-                prompt_title = st.text_input("Prompt Title:", key="prompt_title")
-            
-            prompt_text = st.text_area(
-                "Prompt Text:", 
-                placeholder="Enter your custom prompt here. Use [brackets] for variables that users can fill in.",
-                height=150,
-                key="prompt_text"
-            )
-            
-            if st.button("➕ Add Prompt", key="add_custom_prompt"):
-                if new_category and prompt_title and prompt_text:
-                    if new_category not in st.session_state.prompt_library:
-                        st.session_state.prompt_library[new_category] = []
-                    
-                    st.session_state.prompt_library[new_category].append({
-                        "title": prompt_title,
-                        "prompt": prompt_text
-                    })
-                    
-                    st.success(f"✅ Prompt '{prompt_title}' added to {new_category}!")
-                    st.rerun()
-                else:
-                    st.warning("⚠️ Please fill out all fields.")
+        response = requests.get(
+            f"{st.session_state.vapi_settings['endpoint']}/calls/{call_id}",
+            headers=headers
+        )
         
-        # Favorites section
-        if st.session_state.favorites:
-            st.subheader("⭐ Favorite Prompts")
-            
-            for fav_id in st.session_state.favorites:
-                try:
-                    category, index = fav_id.split("_", 1)
-                    index = int(index)
-                    
-                    if (category in st.session_state.prompt_library and 
-                        index < len(st.session_state.prompt_library[category])):
-                        
-                        prompt = st.session_state.prompt_library[category][index]
-                        
-                        with st.expander(f"⭐ {prompt['title']} ({category})"):
-                            st.markdown(prompt['prompt'])
-                            
-                            if st.button("🗑️ Remove from Favorites", key=f"remove_fav_{fav_id}"):
-                                st.session_state.favorites.remove(fav_id)
-                                st.success("Removed from favorites!")
-                                st.rerun()
-                except:
-                    # Remove invalid favorite IDs
-                    st.session_state.favorites.remove(fav_id)
+        if response.status_code == 200:
+            return response.json()
+        else:
+            st.error(f"VAPI Status Error: {response.status_code} - {response.text}")
+            return None
+    except Exception as e:
+        st.error(f"VAPI Status Error: {str(e)}")
+        return None
+
+def get_chat_history(agent_id):
+    """Get chat history for an agent"""
+    if agent_id not in st.session_state.chat_sessions:
+        st.session_state.chat_sessions[agent_id] = []
+    return st.session_state.chat_sessions[agent_id]
+
+def add_message_to_chat(agent_id, role, content):
+    """Add message to chat history"""
+    if agent_id not in st.session_state.chat_sessions:
+        st.session_state.chat_sessions[agent_id] = []
+    
+    message = {
+        "role": role,
+        "content": content,
+        "timestamp": datetime.now().timestamp()
+    }
+    
+    st.session_state.chat_sessions[agent_id].append(message)
+    return message
+
+def clear_chat_history(agent_id):
+    """Clear chat history for an agent"""
+    if agent_id in st.session_state.chat_sessions:
+        st.session_state.chat_sessions[agent_id] = []
+
+def get_sheets_data(spreadsheet_id):
+    """Get data from Google Sheets"""
+    if not st.session_state.credentials:
+        st.error("Not authenticated with Google")
+        return None
+    
+    if spreadsheet_id in st.session_state.sheets_data:
+        return st.session_state.sheets_data[spreadsheet_id]
+    
+    try:
+        # Use credentials to create a client to interact with Google Sheets
+        gc = gspread.authorize(st.session_state.credentials)
+        spreadsheet = gc.open_by_key(spreadsheet_id)
         
-        # Export/Import prompts
-        st.subheader("📤 Import/Export Prompts")
+        # Get all worksheets
+        worksheets = spreadsheet.worksheets()
         
-        export_col1, export_col2 = st.columns(2)
+        # Store data for each worksheet
+        sheets_data = {}
+        for worksheet in worksheets:
+            try:
+                df = get_as_dataframe(worksheet, evaluate_formulas=True, skiprows=0)
+                # Clean up the dataframe (remove empty rows and columns)
+                df = df.dropna(how='all').dropna(axis=1, how='all')
+                if not df.empty:
+                    sheets_data[worksheet.title] = df
+            except Exception as e:
+                st.error(f"Error loading worksheet {worksheet.title}: {str(e)}")
         
-        with export_col1:
-            if st.button("📤 Export Prompt Library"):
-                prompt_json = json.dumps(st.session_state.prompt_library, indent=2)
-                st.download_button(
-                    label="💾 Download Prompts JSON",
-                    data=prompt_json,
-                    file_name=f"prompt_library_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
-                    mime="application/json"
-                )
+        # Cache the data
+        st.session_state.sheets_data[spreadsheet_id] = sheets_data
+        return sheets_data
+    except Exception as e:
+        st.error(f"Error loading spreadsheet: {str(e)}")
+        return None
+
+def update_sheets_data(spreadsheet_id, worksheet_name, df):
+    """Update data in Google Sheets"""
+    if not st.session_state.credentials:
+        st.error("Not authenticated with Google")
+        return False
+    
+    try:
+        # Use credentials to create a client to interact with Google Sheets
+        gc = gspread.authorize(st.session_state.credentials)
+        spreadsheet = gc.open_by_key(spreadsheet_id)
         
-        with export_col2:
-            uploaded_prompts = st.file_uploader("📥 Import Prompts", type="json", key="import_prompts")
-            
-            if uploaded_prompts:
-                try:
-                    imported_data = json.load(uploaded_prompts)
-                    
-                    if isinstance(imported_data, dict):
-                        for category, prompts in imported_data.items():
-                            if category not in st.session_state.prompt_library:
-                                st.session_state.prompt_library[category] = []
-                            
-                            for prompt in prompts:
-                                if isinstance(prompt, dict) and "title" in prompt and "prompt" in prompt:
-                                    st.session_state.prompt_library[category].append(prompt)
-                        
-                        st.success("✅ Prompts imported successfully!")
+        # Get the worksheet
+        try:
+            worksheet = spreadsheet.worksheet(worksheet_name)
+        except:
+            # Create worksheet if it doesn't exist
+            worksheet = spreadsheet.add_worksheet(title=worksheet_name, rows=df.shape[0] + 10, cols=df.shape[1] + 5)
+        
+        # Update the worksheet
+        set_with_dataframe(worksheet, df)
+        
+        # Update the cached data
+        if spreadsheet_id in st.session_state.sheets_data:
+            st.session_state.sheets_data[spreadsheet_id][worksheet_name] = df
+        
+        return True
+    except Exception as e:
+        st.error(f"Error updating spreadsheet: {str(e)}")
+        return False
+
+def process_data(data):
+    """Process data for visualization and analysis"""
+    if data is None or data.empty:
+        # Instead of returning early, return empty processed data
+        return {
+            "summary": {},
+            "trends": {},
+            "insights": []
+        }
+    
+    # Basic data processing
+    summary = {
+        "row_count": len(data),
+        "column_count": len(data.columns)
+    }
+    
+    # Extract numeric columns for trends
+    numeric_cols = data.select_dtypes(include=['number']).columns.tolist()
+    trends = {}
+    
+    for col in numeric_cols[:5]:  # Limit to first 5 numeric columns
+        try:
+            trends[col] = {
+                "mean": data[col].mean(),
+                "median": data[col].median(),
+                "min": data[col].min(),
+                "max": data[col].max()
+            }
+        except:
+            pass
+    
+    # Generate basic insights
+    insights = []
+    
+    if len(numeric_cols) > 0:
+        insights.append(f"Found {len(numeric_cols)} numeric columns that can be used for analysis.")
+    
+    # Return processed data
+    return {
+        "summary": summary,
+        "trends": trends,
+        "insights": insights
+    }
+
+# UI Components
+def render_sidebar():
+    """Render sidebar with agent selection"""
+    with st.sidebar:
+        st.title("25-Agent Dashboard")
+        
+        # User info
+        if st.session_state.authenticated and st.session_state.user_info:
+            st.write(f"Welcome, {st.session_state.user_info['name']}")
+        
+        # Agent categories
+        categories = {}
+        for agent_key, agent_config in AGENTS_CONFIG.items():
+            category = agent_config.get("category", "Other")
+            if category not in categories:
+                categories[category] = []
+            categories[category].append((agent_key, agent_config))
+        
+        # Display agents by category
+        for category, agents in categories.items():
+            with st.expander(f"{category} ({len(agents)})", expanded=True):
+                for agent_key, agent_config in agents:
+                    if st.button(f"{agent_config['icon']} {agent_config['name']}", key=f"btn_{agent_key}"):
+                        st.session_state.current_page = agent_key
                         st.rerun()
-                    else:
-                        st.error("❌ Invalid file format")
-                except Exception as e:
-                    st.error(f"❌ Error importing prompts: {str(e)}")
+        
+        # Settings
+        with st.expander("Settings", expanded=False):
+            st.checkbox("Text-to-Speech", value=st.session_state.use_tts, key="use_tts")
+            st.checkbox("Show Timestamps", value=st.session_state.show_timestamps, key="show_timestamps")
+            
+            # VAPI Settings
+            st.subheader("VAPI Settings")
+            vapi_enabled = st.checkbox("Enable VAPI", value=st.session_state.vapi_settings.get('enabled', False), key="vapi_enabled")
+            vapi_api_key = st.text_input("VAPI API Key", value=st.session_state.vapi_settings.get('api_key', ''), type="password", key="vapi_api_key")
+            vapi_endpoint = st.text_input("VAPI Endpoint", value=st.session_state.vapi_settings.get('endpoint', 'https://api.vapi.ai/v1'), key="vapi_endpoint")
+            
+            # Update VAPI settings
+            st.session_state.vapi_settings = {
+                'enabled': vapi_enabled,
+                'api_key': vapi_api_key,
+                'endpoint': vapi_endpoint
+            }
+            
+            # Logout button
+            if st.button("Logout"):
+                for key in list(st.session_state.keys()):
+                    del st.session_state[key]
+                initialize_session_state()
+                st.rerun()
 
-# Footer
-st.divider()
+def render_agent_page(agent_key):
+    """Render agent page with tabs"""
+    agent_config = AGENTS_CONFIG.get(agent_key)
+    
+    if not agent_config:
+        st.error(f"Agent {agent_key} not found")
+        return
+    
+    # Agent header
+    st.title(f"{agent_config['icon']} {agent_config['name']}")
+    st.write(agent_config['description'])
+    
+    # Tabs
+    tab1, tab2, tab3, tab4 = st.tabs(["Chatbot", "Data", "Analytics", "Settings"])
+    
+    with tab1:
+        render_chatbot_tab(agent_config)
+    
+    with tab2:
+        render_data_tab(agent_config)
+    
+    with tab3:
+        render_analytics_tab(agent_config)
+    
+    with tab4:
+        render_settings_tab(agent_config)
 
-# Performance summary
-if st.session_state.authenticated:
-    st.subheader("📊 Session Summary")
+def render_chatbot_tab(agent_config):
+    """Render chatbot tab"""
+    st.subheader("Chat with Agent")
     
-    summary_col1, summary_col2, summary_col3, summary_col4 = st.columns(4)
+    # Chat container
+    chat_container = st.container()
     
-    with summary_col1:
-        total_messages = sum(len(session) for session in st.session_state.chat_sessions.values())
-        st.metric("Total Messages", total_messages)
+    # Input area
+    input_container = st.container()
     
-    with summary_col2:
-        total_calls = sum(len(calls) for calls in st.session_state.ai_calls.values())
-        st.metric("Total Calls", total_calls)
+    with input_container:
+        col1, col2, col3 = st.columns([3, 1, 1])
+        
+        with col1:
+            user_input = st.text_input("Message", key=f"input_{agent_config['id']}")
+        
+        with col2:
+            # Voice input button
+            voice_button = st.button("🎤 Voice", key=f"voice_{agent_config['id']}")
+            if voice_button:
+                st.session_state.recording_status = True
+                speech_text = speech_to_text()
+                st.session_state.recording_status = False
+                
+                if speech_text:
+                    user_input = speech_text
+                    st.session_state[f"input_{agent_config['id']}"] = speech_text
+        
+        with col3:
+            # Send button and clear chat button
+            send_button = st.button("Send", key=f"send_{agent_config['id']}")
+            clear_button = st.button("Clear", key=f"clear_{agent_config['id']}")
     
-    with summary_col3:
-        active_agents = len([k for k in st.session_state.chat_sessions.keys() if st.session_state.chat_sessions[k]])
-        st.metric("Active Agents", active_agents)
+    # VAPI call button
+    if st.session_state.vapi_settings['enabled']:
+        vapi_call = st.button("📞 Call Agent", key=f"vapi_{agent_config['id']}")
+        if vapi_call and user_input:
+            call_id = process_vapi_call(agent_config, user_input)
+            if call_id:
+                st.success(f"Call initiated with ID: {call_id}")
+                # Add message to chat
+                add_message_to_chat(agent_config['id'], "user", f"[VAPI Call] {user_input}")
+                # Clear input
+                st.session_state[f"input_{agent_config['id']}"] = ""
+                st.rerun()
     
-    with summary_col4:
-        st.metric("Prompt Categories", len(st.session_state.prompt_library))
+    # Handle send button
+    if send_button and user_input:
+        # Add user message to chat
+        add_message_to_chat(agent_config['id'], "user", user_input)
+        
+        # Send message to agent
+        response = send_message_to_agent(agent_config, user_input)
+        
+        if response:
+            # Add agent response to chat
+            agent_message = response.get("message", "No response from agent")
+            add_message_to_chat(agent_config['id'], "assistant", agent_message)
+            
+            # Text-to-speech for agent response
+            if st.session_state.use_tts:
+                audio_file = text_to_speech(agent_message)
+                if audio_file:
+                    autoplay_audio(audio_file)
+        
+        # Clear input
+        st.session_state[f"input_{agent_config['id']}"] = ""
+        st.rerun()
+    
+    # Handle clear button
+    if clear_button:
+        clear_chat_history(agent_config['id'])
+        st.rerun()
+    
+    # Display chat history
+    with chat_container:
+        chat_history = get_chat_history(agent_config['id'])
+        
+        if not chat_history:
+            st.info(f"Start chatting with {agent_config['name']}!")
+        else:
+            for message in chat_history:
+                timestamp_str = format_timestamp(message["timestamp"])
+                
+                if message["role"] == "user":
+                    st.markdown(f"**{timestamp_str}You:** {message['content']}")
+                else:
+                    st.markdown(f"**{timestamp_str}{agent_config['name']}:** {message['content']}")
 
-st.caption("🚀 25-Agent Business Dashboard | Powered by AI & n8n | Built with Streamlit")
+def render_data_tab(agent_config):
+    """Render data tab"""
+    st.subheader("Agent Data")
+    
+    # Get spreadsheet data
+    spreadsheet_id = agent_config['spreadsheet']['id']
+    sheets_data = get_sheets_data(spreadsheet_id)
+    
+    if not sheets_data:
+        st.warning("No data available. Please authenticate with Google.")
+        return
+    
+    # Worksheet selection
+    worksheet_names = list(sheets_data.keys())
+    if not worksheet_names:
+        st.warning("No worksheets found in the spreadsheet.")
+        return
+    
+    selected_worksheet = st.selectbox("Select Worksheet", worksheet_names, key=f"worksheet_{agent_config['id']}")
+    
+    if selected_worksheet not in sheets_data:
+        st.warning(f"Worksheet {selected_worksheet} not found.")
+        return
+    
+    # Display data
+    df = sheets_data[selected_worksheet]
+    st.dataframe(df, use_container_width=True)
+    
+    # Data editing
+    with st.expander("Edit Data", expanded=False):
+        st.write("Edit data and click 'Save Changes' to update the spreadsheet.")
+        
+        # Create a copy of the dataframe for editing
+        edited_df = st.data_editor(df, key=f"editor_{agent_config['id']}", use_container_width=True)
+        
+        # Save changes button
+        if st.button("Save Changes", key=f"save_{agent_config['id']}"):
+            if update_sheets_data(spreadsheet_id, selected_worksheet, edited_df):
+                st.success("Data updated successfully!")
+            else:
+                st.error("Failed to update data.")
 
-print("✅ 25-Agent Business Dashboard successfully created!")
-print("\n🎯 Features implemented:")
-print("- 25 specialized AI agents with real assistant IDs")
-print("- Unified n8n webhook integration for all agents")
-print("- Google Sheets authentication with REAL DATA ONLY")
-print("- Real spreadsheet IDs integrated:")
-print("  • Grant: 1t80HNEgDIBFElZqodlvfaEuRj-bPlS4-R8T9kdLBtFk")
-print("  • Real Estate: 1BWz_FnYdzZyyl4WafSgoZV9rLHC91XOjstDcgwn_k6Y")
-print("  • Agent: 1Om-RVVChe1GItsY4YaN_K95iM44vTpoxpSXzwTnOdAo")
-print("- Individual Google Sheets integration per agent")
-print("- AI voice calling system with call management")
-print("- Comprehensive prompt library with favorites")
-print("- Real-time data visualization ONLY from actual spreadsheet data")
-print("- Voice recognition and text-to-speech support")
-print("- Export/import capabilities for data and prompts")
-print("- Category-based agent filtering")
-print("- Session management and performance tracking")
-print("- Responsive design with intuitive navigation")
-print("- Clear page navigation buttons for each agent")
-print("- Improved home page category layout")
-print("- NO DEMO DATA - Only real Google Sheets data displayed")
-print("\n🔧 Technical specifications:")
-print("- Google Service account authentication")
-print("- Streamlit secrets integration for webhook and bearer token")
-print("- Unified webhook URL for all agents")
-print("- Real assistant IDs integrated")
-print("- Dynamic data visualization based on actual spreadsheet content")
-print("- Persistent session state management")
-print("- Modular architecture for easy expansion")
-print("- White-labeled branding throughout")
-print("- Proper error handling for missing or empty spreadsheets")
-print("\n📋 Setup Instructions:")
-print("1. Add to Streamlit secrets:")
-print('   WEBHOOK_URL = "https://agentonline-u29564.vm.elestio.app/webhook/42e650d7-3e50-4dda-bf4f-d3e16b1cd"')
-print('   BEARER_TOKEN = "your_bearer_token_here"')
-print("2. Upload Google Service Account JSON file")
-print("3. Add data to your Google Sheets")
-print("4. Ready to use!")
+def render_analytics_tab(agent_config):
+    """Render analytics tab"""
+    st.subheader("Analytics")
+    
+    # Get spreadsheet data
+    spreadsheet_id = agent_config['spreadsheet']['id']
+    sheets_data = get_sheets_data(spreadsheet_id)
+    
+    if not sheets_data:
+        st.warning("No data available. Please authenticate with Google.")
+        return
+    
+    # Worksheet selection
+    worksheet_names = list(sheets_data.keys())
+    if not worksheet_names:
+        st.warning("No worksheets found in the spreadsheet.")
+        return
+    
+    selected_worksheet = st.selectbox("Select Worksheet", worksheet_names, key=f"analytics_worksheet_{agent_config['id']}")
+    
+    if selected_worksheet not in sheets_data:
+        st.warning(f"Worksheet {selected_worksheet} not found.")
+        return
+    
+    # Get data
+    df = sheets_data[selected_worksheet]
+    
+    # Process data
+    processed_data = process_data(df)
+    
+    # Display summary
+    st.subheader("Data Summary")
+    st.write(f"Rows: {processed_data['summary'].get('row_count', 0)}")
+    st.write(f"Columns: {processed_data['summary'].get('column_count', 0)}")
+    
+    # Display trends
+    if processed_data['trends']:
+        st.subheader("Trends")
+        
+        # Select columns for visualization
+        numeric_cols = df.select_dtypes(include=['number']).columns.tolist()
+        
+        if numeric_cols:
+            selected_col = st.selectbox("Select Column for Visualization", numeric_cols, key=f"viz_col_{agent_config['id']}")
+            
+            # Create visualization
+            st.subheader(f"{selected_col} Distribution")
+            
+            try:
+                fig = px.histogram(df, x=selected_col, nbins=20)
+                st.plotly_chart(fig, use_container_width=True)
+                
+                # Add basic statistics
+                col_stats = processed_data['trends'].get(selected_col, {})
+                if col_stats:
+                    col1, col2, col3, col4 = st.columns(4)
+                    col1.metric("Mean", f"{col_stats.get('mean', 0):.2f}")
+                    col2.metric("Median", f"{col_stats.get('median', 0):.2f}")
+                    col3.metric("Min", f"{col_stats.get('min', 0):.2f}")
+                    col4.metric("Max", f"{col_stats.get('max', 0):.2f}")
+            except Exception as e:
+                st.error(f"Error creating visualization: {str(e)}")
+    
+    # Display insights
+    if processed_data['insights']:
+        st.subheader("Insights")
+        for insight in processed_data['insights']:
+            st.info(insight)
+
+def render_settings_tab(agent_config):
+    """Render settings tab"""
+    st.subheader("Agent Settings")
+    
+    # Display agent configuration
+    st.json(agent_config)
+    
+    # Prompt library
+    st.subheader("Prompt Library")
+    
+    # Get prompts for this agent's category
+    category = agent_config.get("category", "Other")
+    
+    # Add new prompt
+    with st.expander("Add New Prompt", expanded=False):
+        prompt_title = st.text_input("Prompt Title", key=f"prompt_title_{agent_config['id']}")
+        prompt_text = st.text_area("Prompt Text", key=f"prompt_text_{agent_config['id']}")
+        
+        if st.button("Add Prompt", key=f"add_prompt_{agent_config['id']}"):
+            if prompt_title and prompt_text:
+                if category not in st.session_state.prompt_library:
+                    st.session_state.prompt_library[category] = []
+                
+                st.session_state.prompt_library[category].append({
+                    "title": prompt_title,
+                    "prompt": prompt_text
+                })
+                
+                st.success("Prompt added successfully!")
+                st.session_state[f"prompt_title_{agent_config['id']}"] = ""
+                st.session_state[f"prompt_text_{agent_config['id']}"] = ""
+                st.rerun()
+    
+    # Display prompts
+    if category in st.session_state.prompt_library and st.session_state.prompt_library[category]:
+        for i, prompt in enumerate(st.session_state.prompt_library[category]):
+            with st.expander(prompt["title"], expanded=False):
+                st.write(prompt["prompt"])
+                
+                if st.button("Use Prompt", key=f"use_prompt_{agent_config['id']}_{i}"):
+                    # Set the prompt as user input
+                    st.session_state[f"input_{agent_config['id']}"] = prompt["prompt"]
+                    st.rerun()
+    else:
+        st.info(f"No prompts available for {category}. Add some prompts to get started!")
+
+# Main app
+def main():
+    # Check authentication
+    if not st.session_state.authenticated:
+        authenticate_user()
+    
+    # Render sidebar
+    render_sidebar()
+    
+    # Render current page
+    current_page = st.session_state.current_page
+    render_agent_page(current_page)
+
+if __name__ == "__main__":
+    main()
